@@ -2,6 +2,12 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 
+// Cloudflare runtime binding types, declared locally: this Cloudflare-only entry
+// is also type-checked by the Next.js / Vercel build, which does not load
+// @cloudflare/workers-types. The real bindings are injected at runtime.
+type Fetcher = { fetch(input: Request | string, init?: RequestInit): Promise<Response> };
+type D1Database = Record<string, unknown>;
+
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
