@@ -36,7 +36,7 @@ test("server-renders the Aurora Inspiration experience", async () => {
   assert.match(html, /Dinner, then the late set\./);
   assert.match(html, /For tomorrow morning/);
   assert.match(html, /Worth making room for/);
-  assert.match(html, /Ask Aurora about London/);
+  assert.match(html, /Tell Aurora what to change/);
   assert.match(html, /https?:\/\/[^\"']+\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|SkeletonPreview/);
 });
@@ -60,8 +60,8 @@ test("ships the Aurora brand assets and removes starter infrastructure", async (
 
   assert.match(page, /AuroraExperience/);
   assert.match(layout, /generateMetadata/);
-  assert.match(experience, /Ask Aurora to arrange/);
-  assert.match(experience, /Request received/i);
+  assert.match(experience, /Send access request/);
+  assert.match(experience, /Your timeline is live/i);
   assert.match(css, /--orange:\s*#ff8f19/i);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);

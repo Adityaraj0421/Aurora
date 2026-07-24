@@ -21,14 +21,14 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       title: "Inspiration — Aurora",
-      description: "Dinner, then the late set. Inspiration arranged around your life.",
+      description: "Inspiration, shaped around your life—from discovery to fulfilment in one private context.",
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1732, height: 908, alt: "Aurora Inspiration — Dinner, then the late set" }],
+      images: [{ url: `${origin}/og.png`, width: 1731, height: 909, alt: "Aurora — Inspiration, shaped around your life" }],
     },
     twitter: {
       card: "summary_large_image",
       title: "Inspiration — Aurora",
-      description: "Dinner, then the late set. Inspiration arranged around your life.",
+      description: "Inspiration, shaped around your life—from discovery to fulfilment in one private context.",
       images: [`${origin}/og.png`],
     },
   };
