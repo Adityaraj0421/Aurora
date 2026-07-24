@@ -1490,6 +1490,34 @@ main {
   flex: 1;
 }
 
+.dialog-content--detail {
+  overflow: hidden;
+}
+
+.detail-panel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.detail-panel__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+.detail-panel .detail-body {
+  padding-bottom: 40px;
+}
+
+.detail-panel .panel-actions {
+  position: static;
+  width: 100%;
+  flex: none;
+}
+
 .simple-panel {
   min-height: 100%;
   padding: 92px 40px 140px;
@@ -2206,6 +2234,7 @@ main {
   .dialog-content {
     top: auto;
     left: 0;
+    height: calc(100dvh - 22px);
     width: 100%;
     max-height: calc(100dvh - 22px);
     border-top: 1px solid var(--hairline);
@@ -2244,6 +2273,10 @@ main {
 
   .detail-body {
     padding: 24px 24px 140px;
+  }
+
+  .detail-panel .detail-body {
+    padding-bottom: 32px;
   }
 
   .panel-actions {

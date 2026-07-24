@@ -790,25 +790,27 @@ export function AuroraExperience() {
 
             {panel === "detail" && (
               <div className="detail-panel panel-stage" key="detail">
-                <div className="detail-hero">
-                  <Image fill src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" sizes="(max-width: 700px) 100vw, 620px" />
-                  <span className="detail-hero__veil" /><div><p className="eyebrow">Tonight · Soho</p><h2>{heroCopy.title}</h2><p>{heroCopy.description}</p></div>
-                </div>
-                <div className="detail-body">
-                  <div className="availability-callout"><AuroraSignal active /><span><strong>Available to request—not yet held.</strong>Mountain was checked at 18:42. Ronnie Scott’s requires a custom access request.</span></div>
-                  <section className="detail-section" aria-labelledby="timeline-title"><h3 id="timeline-title">The evening</h3><div className="timeline operational-timeline">
-                    {eveningPlan.map((step) => <div className="timeline__item" key={step.title}><time>{step.time}</time><span><strong>{step.title}</strong><small>{step.detail}</small><StatusLabel state={step.state} /></span></div>)}
-                  </div></section>
-                  <section className="detail-section" aria-labelledby="why-title">
-                    <div className="detail-section__heading"><h3 id="why-title">Why this fits</h3><button type="button" onClick={() => setPanel("context")}>Review signals</button></div>
-                    <ul className="provenance-list">
-                      <li><span className="provenance-check"><Check size={15} /></span><span><strong>You arrive at the hotel at 6:20 PM</strong><small>Calendar · synced 4 minutes ago · used for timing</small></span></li>
-                      <li><span className="provenance-check"><Check size={15} /></span><span><strong>Maya is free after 7:30 PM</strong><small>Shared availability · visible to you and Maya</small></span></li>
-                      <li><span className="provenance-check"><Check size={15} /></span><span><strong>Your first commitment tomorrow is at 10:00 AM</strong><small>Calendar · synced 4 minutes ago · used for pacing</small></span></li>
-                      <li><span className="provenance-check"><Check size={15} /></span><span><strong>Quiet table · no shellfish</strong><small>Aurora memory · confirmed by you · last used 12 July</small></span></li>
-                    </ul>
-                    <p className="signal-disclosure">Only these signals were used for this edit. You can correct or disable any source.</p>
-                  </section>
+                <div className="detail-panel__scroll">
+                  <div className="detail-hero">
+                    <Image fill src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" sizes="(max-width: 700px) 100vw, 620px" />
+                    <span className="detail-hero__veil" /><div><p className="eyebrow">Tonight · Soho</p><h2>{heroCopy.title}</h2><p>{heroCopy.description}</p></div>
+                  </div>
+                  <div className="detail-body">
+                    <div className="availability-callout"><AuroraSignal active /><span><strong>Available to request—not yet held.</strong>Mountain was checked at 18:42. Ronnie Scott’s requires a custom access request.</span></div>
+                    <section className="detail-section" aria-labelledby="timeline-title"><h3 id="timeline-title">The evening</h3><div className="timeline operational-timeline">
+                      {eveningPlan.map((step) => <div className="timeline__item" key={step.title}><time>{step.time}</time><span><strong>{step.title}</strong><small>{step.detail}</small><StatusLabel state={step.state} /></span></div>)}
+                    </div></section>
+                    <section className="detail-section" aria-labelledby="why-title">
+                      <div className="detail-section__heading"><h3 id="why-title">Why this fits</h3><button type="button" onClick={() => setPanel("context")}>Review signals</button></div>
+                      <ul className="provenance-list">
+                        <li><span className="provenance-check"><Check size={15} /></span><span><strong>You arrive at the hotel at 6:20 PM</strong><small>Calendar · synced 4 minutes ago · used for timing</small></span></li>
+                        <li><span className="provenance-check"><Check size={15} /></span><span><strong>Maya is free after 7:30 PM</strong><small>Shared availability · visible to you and Maya</small></span></li>
+                        <li><span className="provenance-check"><Check size={15} /></span><span><strong>Your first commitment tomorrow is at 10:00 AM</strong><small>Calendar · synced 4 minutes ago · used for pacing</small></span></li>
+                        <li><span className="provenance-check"><Check size={15} /></span><span><strong>Quiet table · no shellfish</strong><small>Aurora memory · confirmed by you · last used 12 July</small></span></li>
+                      </ul>
+                      <p className="signal-disclosure">Only these signals were used for this edit. You can correct or disable any source.</p>
+                    </section>
+                  </div>
                 </div>
                 <div className="panel-actions"><button className="primary-action" type="button" onClick={() => setPanel("confirm")}>Send access request <ArrowRight size={18} /></button><button className={`secondary-action${sent ? " is-success" : ""}`} type="button" onClick={sendToMaya}><span className="button-state" key={sent ? "sent" : "send"}>{sent ? <Check size={18} /> : <Send size={18} />}{sent ? "Shared" : "Share"}</span></button></div>
               </div>
