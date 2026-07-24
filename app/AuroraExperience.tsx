@@ -11,6 +11,7 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  Gift,
   MapPin,
   MessageCircle,
   Search,
@@ -56,11 +57,13 @@ type Experience = {
   badge: string;
   detail: string;
   provenance: string;
+  signal?: string;
 };
 
 type EditNotice = {
   title: string;
   detail: string;
+  understood?: string[];
   previousContexts: string[];
   previousSettings: Record<ContextKey, string>;
 };
@@ -92,11 +95,12 @@ const tomorrow: Experience[] = [
     image: "/images/sauna.webp",
     label: "Recovery · 8:30 AM",
     title: "A quieter start.",
-    body: "Hydrotherapy, sauna and a short treatment selected around your sleep and travel.",
+    body: "Contrast therapy, sauna and a short treatment — set around a week your recovery has been running low.",
     metadata: "Surrenne · Belgravia · 90 min",
     badge: "Member access",
-    detail: "A private recovery circuit arranged for the morning after a late night, with your treatment preferences already shared.",
-    provenance: "Selected from your recovery preferences and tomorrow’s first calendar commitment.",
+    signal: "Whoop · recovery 38% ↓ · sleep 5h 40m",
+    detail: "A private recovery circuit for the morning after a late night, paced to a week of short sleep and low recovery — your treatment preferences already shared.",
+    provenance: "Your wearable flagged three short nights and a 38% recovery score, so Aurora put restoration ahead of training.",
   },
   {
     id: "movement",
@@ -265,9 +269,9 @@ function ExperienceCard({
   );
 }
 
-function EditorialCard({ item, onOpen }: { item: Experience; onOpen: (item: Experience) => void }) {
+function EditorialCard({ item, onOpen, highlight = false }: { item: Experience; onOpen: (item: Experience) => void; highlight?: boolean }) {
   return (
-    <button className="editorial-card" type="button" onClick={() => onOpen(item)}>
+    <button className={`editorial-card${highlight ? " is-surfaced" : ""}`} type="button" onClick={() => onOpen(item)}>
       <span className="editorial-card__image">
         <Image fill unoptimized src={item.image} alt="" style={{ objectPosition: item.imagePosition }} sizes="(max-width: 700px) 34vw, 280px" />
       </span>
@@ -275,6 +279,7 @@ function EditorialCard({ item, onOpen }: { item: Experience; onOpen: (item: Expe
         <span className="editorial-card__topline"><span>{item.label}</span><span>{item.badge}</span></span>
         <strong>{item.title}</strong>
         <span>{item.body}</span>
+        {item.signal && <span className="editorial-card__signal"><AuroraSignal active />{item.signal}</span>}
         <small>{item.metadata}</small>
       </span>
       <ArrowUpRight className="editorial-card__arrow" size={19} strokeWidth={1.5} />
@@ -320,6 +325,9 @@ export function AuroraExperience() {
   const [editNotice, setEditNotice] = useState<EditNotice | null>(null);
   const [greeting, setGreeting] = useState("Good evening");
   const [isRecomposing, setIsRecomposing] = useState(false);
+  const [isInterpreting, setIsInterpreting] = useState(false);
+  const [giftSurfaced, setGiftSurfaced] = useState(false);
+  const [healthSurfaced, setHealthSurfaced] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recomposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement>(null);
@@ -472,7 +480,12 @@ export function AuroraExperience() {
     }
   }
 
-  function applyEdit(nextContexts: string[], nextSettings: Record<ContextKey, string>, title: string) {
+  function applyEdit(
+    nextContexts: string[],
+    nextSettings: Record<ContextKey, string>,
+    title: string,
+    extras: { understood?: string[]; detail?: string; surfaceGift?: boolean; surfaceHealth?: boolean } = {},
+  ) {
     const previousContexts = [...appliedContexts];
     const previousSettings = { ...appliedSettings };
     const details: string[] = [];
@@ -488,10 +501,13 @@ export function AuroraExperience() {
     setDraftSettings(nextSettings);
     setEditNotice({
       title,
-      detail: `Recomposed around ${details.join(", ")}.`,
+      detail: extras.detail ?? `Recomposed around ${details.join(", ")}.`,
+      understood: extras.understood,
       previousContexts,
       previousSettings,
     });
+    if (extras.surfaceGift) setGiftSurfaced(true);
+    if (extras.surfaceHealth) setHealthSurfaced(true);
     setPanel(null);
     notify("Three recommendations were reshaped");
     if (recomposeTimer.current) clearTimeout(recomposeTimer.current);
@@ -507,6 +523,8 @@ export function AuroraExperience() {
     setAppliedSettings(editNotice.previousSettings);
     setDraftSettings(editNotice.previousSettings);
     setEditNotice(null);
+    setGiftSurfaced(false);
+    setHealthSurfaced(false);
     notify("Previous edit restored");
   }
 
@@ -517,22 +535,63 @@ export function AuroraExperience() {
     applyEdit(next, appliedSettings, title);
   }
 
-  function curatePrompt(message: string) {
+  async function interpretPrompt(message: string) {
     const prompt = message.trim();
-    if (!prompt) return;
-    const next = new Set(appliedContexts);
-    if (/close|near|walk|soho/i.test(prompt)) next.add("Keep it close");
-    if (/friend|four|group|together/i.test(prompt)) next.add("Bring friends");
-    if (/slow|recovery|quiet|rest/i.test(prompt)) next.add("Slow tomorrow down");
-    if (/new|surprise|different|discover/i.test(prompt)) next.add("Something new");
-    if (next.size === appliedContexts.length) next.add("Something new");
+    if (!prompt || isInterpreting) return;
     setChatInput("");
-    applyEdit([...next], appliedSettings, `Aurora interpreted “${prompt}”`);
+    setIsInterpreting(true);
+    try {
+      const response = await fetch("/api/interpret", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!response.ok) throw new Error("Aurora could not read that.");
+      const data = (await response.json()) as {
+        understood?: string[];
+        reasoning?: string;
+        contexts?: string[];
+        surfaceGift?: boolean;
+        surfaceHealth?: boolean;
+        headline?: string;
+      };
+      const merged = Array.from(new Set([...appliedContexts, ...(data.contexts ?? [])]));
+      applyEdit(merged, appliedSettings, data.headline?.trim() || `Aurora interpreted “${prompt}”`, {
+        understood: data.understood,
+        detail: data.reasoning,
+        surfaceGift: data.surfaceGift,
+        surfaceHealth: data.surfaceHealth,
+      });
+    } catch {
+      fallbackInterpret(prompt);
+    } finally {
+      setIsInterpreting(false);
+    }
+  }
+
+  // Local read, used only if the model is unreachable, so the demo never breaks.
+  function fallbackInterpret(prompt: string) {
+    const next = new Set(appliedContexts);
+    const understood: string[] = [];
+    if (/close|near|walk|soho|private|quiet|just us/i.test(prompt)) { next.add("Keep it close"); understood.push("Keep it close and private"); }
+    if (/friend|four|group|together|people/i.test(prompt)) { next.add("Bring friends"); understood.push("Open it up to friends"); }
+    if (/slow|recovery|rest|tired|exhaust|sleep|gentle|brutal|hard week/i.test(prompt)) { next.add("Slow tomorrow down"); understood.push("Protect tomorrow's recovery"); }
+    if (/new|surprise|different|discover|adventurous/i.test(prompt)) { next.add("Something new"); understood.push("Try something less familiar"); }
+    const surfaceGift = /gift|present|birthday|celebrat|anniversar|for maya|surprise her/i.test(prompt);
+    const surfaceHealth = /tired|exhaust|sleep|recovery|rest|gentle|wellness|slow|brutal|hard week/i.test(prompt);
+    if (surfaceGift) understood.push("Something for Maya");
+    if (understood.length === 0) understood.push("Refreshed your edit");
+    applyEdit(Array.from(next), appliedSettings, `Aurora interpreted “${prompt}”`, {
+      understood,
+      detail: "Reshaped around what I could read in your note.",
+      surfaceGift,
+      surfaceHealth,
+    });
   }
 
   function submitChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    curatePrompt(chatInput);
+    void interpretPrompt(chatInput);
   }
 
   function toggleDraftContext(option: string) {
@@ -594,8 +653,15 @@ export function AuroraExperience() {
               </div>
               {editNotice && (
                 <div className="edit-update" role="status" aria-live="polite">
-                  <span><AuroraSignal active /><span><strong>{editNotice.title}</strong><small>{editNotice.detail}</small></span></span>
-                  <button type="button" onClick={undoEdit}>Undo</button>
+                  <div className="edit-update__row">
+                    <span className="edit-update__lead"><AuroraSignal active /><span><strong>{editNotice.title}</strong><small>{editNotice.detail}</small></span></span>
+                    <button type="button" onClick={undoEdit}>Undo</button>
+                  </div>
+                  {editNotice.understood && editNotice.understood.length > 0 && (
+                    <ul className="edit-update__understood" aria-label="What Aurora understood">
+                      {editNotice.understood.map((line) => <li key={line}><Check size={13} strokeWidth={2} />{line}</li>)}
+                    </ul>
+                  )}
                 </div>
               )}
             </section>
@@ -633,7 +699,7 @@ export function AuroraExperience() {
                 <p>{slowTomorrow ? "Recovery is being prioritised." : "Designed around a late night."}</p>
               </div>
               <div className="editorial-list">
-                {tomorrowItems.map((item) => <EditorialCard key={item.id} item={item} onOpen={openExperience} />)}
+                {tomorrowItems.map((item) => <EditorialCard key={item.id} item={item} onOpen={openExperience} highlight={healthSurfaced && item.id === "recovery"} />)}
               </div>
             </section>
 
@@ -668,6 +734,37 @@ export function AuroraExperience() {
                   <button type="button" onClick={() => navigate("plans")}>See shared plan <ArrowRight size={17} /></button>
                 </aside>
               </div>
+            </section>
+
+            <section className={`content-section gift-section${giftSurfaced ? " is-surfaced" : ""}`} aria-labelledby="gift-title">
+              <div className="section-heading">
+                <div><p className="eyebrow">Because Friday matters</p><h2 id="gift-title">A gift, already found.</h2></div>
+                <div className="shared-avatars" aria-label="For Maya"><span>M</span><small>For Maya</small></div>
+              </div>
+              <article className="gift-card">
+                <div className="gift-card__body">
+                  <span className="gift-card__mark"><Gift size={20} strokeWidth={1.6} /></span>
+                  <p className="eyebrow">For Maya · her birthday, Friday</p>
+                  <h3>The first edition she keeps returning to.</h3>
+                  <p>A signed copy of the novel she has saved twice this year—sourced, and held in your name. Wrapped and couriered the moment you say yes.</p>
+                  <div className="gift-card__facts">
+                    <span><Check size={15} />Sourced &amp; held</span>
+                    <span><Clock3 size={15} />Arrives today</span>
+                  </div>
+                </div>
+                <aside className="gift-card__why">
+                  <p className="eyebrow">Why it surfaced</p>
+                  <ul>
+                    <li><span>01</span><div><strong>Her birthday is in 3 days</strong><small>From your shared calendar</small></div></li>
+                    <li><span>02</span><div><strong>Saved this author twice</strong><small>Maya’s reading list · visible to you both</small></div></li>
+                    <li><span>03</span><div><strong>The last signed copy</strong><small>Sourced and reserved by Aurora</small></div></li>
+                  </ul>
+                  <div className="gift-card__actions">
+                    <button className="primary-action" type="button" onClick={() => notify("Aurora will wrap and courier this on your word")}>Wrap &amp; send <ArrowRight size={17} /></button>
+                    <span className="gift-card__note"><Check size={14} />No charge until you approve</span>
+                  </div>
+                </aside>
+              </article>
             </section>
 
             <section className="content-section" aria-labelledby="discovery-title">
@@ -768,11 +865,11 @@ export function AuroraExperience() {
       </main>
 
       {surface === "inspiration" && (
-        <form className={`aurora-composer${chatInput.trim() ? " has-prompt" : ""}`} onSubmit={submitChat}>
+        <form className={`aurora-composer${chatInput.trim() ? " has-prompt" : ""}${isInterpreting ? " is-loading" : ""}`} onSubmit={submitChat}>
           <span className="aurora-composer__label" aria-hidden="true">Aurora</span>
           <label className="sr-only" htmlFor="aurora-prompt">Ask Aurora to reshape your London edit</label>
-          <input ref={composerInputRef} id="aurora-prompt" value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Tell Aurora what to change" autoComplete="off" />
-          <button type="submit" aria-label="Reshape the edit" disabled={!chatInput.trim()}><ArrowUpRight size={19} /></button>
+          <input ref={composerInputRef} id="aurora-prompt" value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={isInterpreting ? "Aurora is reading that…" : "Tell Aurora what to change"} autoComplete="off" disabled={isInterpreting} />
+          <button type="submit" aria-label="Reshape the edit" disabled={!chatInput.trim() || isInterpreting}>{isInterpreting ? <span className="button-spinner" aria-hidden="true" /> : <ArrowUpRight size={19} />}</button>
         </form>
       )}
 
@@ -857,15 +954,15 @@ export function AuroraExperience() {
             {panel === "search" && (
               <div className="simple-panel search-panel panel-stage" key="search">
                 <p className="eyebrow">Beyond the edit</p><h2>What are you looking for?</h2>
-                <label className="search-field"><Search size={20} /><span className="sr-only">Search inspiration</span><input autoFocus value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="A place, feeling or idea" onKeyDown={(event) => { if (event.key !== "Enter" || !searchInput.trim()) return; event.preventDefault(); const query = searchInput; setSearchInput(""); curatePrompt(query); }} /></label>
-                <div className="search-suggestions"><p>Try something considered</p>{["A private room for eight", "A restorative day near London", "Live music after dinner", "Somewhere worth flying for"].map((item) => <button key={item} type="button" onClick={() => { setSearchInput(""); curatePrompt(item); }}>{item}<ArrowUpRight size={17} /></button>)}</div>
+                <label className="search-field"><Search size={20} /><span className="sr-only">Search inspiration</span><input autoFocus value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="A place, feeling or idea" onKeyDown={(event) => { if (event.key !== "Enter" || !searchInput.trim()) return; event.preventDefault(); const query = searchInput; setSearchInput(""); void interpretPrompt(query); }} /></label>
+                <div className="search-suggestions"><p>Try something considered</p>{["A private room for eight", "A restorative day near London", "Live music after dinner", "Somewhere worth flying for"].map((item) => <button key={item} type="button" onClick={() => { setSearchInput(""); void interpretPrompt(item); }}>{item}<ArrowUpRight size={17} /></button>)}</div>
               </div>
             )}
 
             {panel === "item" && selectedItem && (
               <div className="item-panel panel-stage" key={selectedItem.id}>
                 <div className="item-panel__image"><Image fill unoptimized src={selectedItem.image} alt="" style={{ objectPosition: selectedItem.imagePosition }} sizes="(max-width: 700px) 100vw, 620px" /><span /></div>
-                <div className="item-panel__body"><p className="eyebrow">{selectedItem.label}</p><h2>{selectedItem.title}</h2><p className="item-panel__lead">{selectedItem.detail}</p><div className="item-panel__facts"><span><Clock3 size={17} />{selectedItem.metadata}</span><span><AuroraSignal />{selectedItem.badge}</span></div><div className="why-now"><h3>Why this surfaced</h3><p>{selectedItem.provenance}</p><small className="provenance-source">Calendar · Aurora memory · editorial judgement</small></div></div>
+                <div className="item-panel__body"><p className="eyebrow">{selectedItem.label}</p><h2>{selectedItem.title}</h2><p className="item-panel__lead">{selectedItem.detail}</p><div className="item-panel__facts"><span><Clock3 size={17} />{selectedItem.metadata}</span><span><AuroraSignal />{selectedItem.badge}</span>{selectedItem.signal && <span><AuroraSignal active />{selectedItem.signal}</span>}</div><div className="why-now"><h3>Why this surfaced</h3><p>{selectedItem.provenance}</p><small className="provenance-source">Calendar · Aurora memory · editorial judgement</small></div></div>
                 <div className="panel-actions"><button className="primary-action" type="button" onClick={() => { setPanel(null); setChatInput(`Can you arrange ${selectedItem.title.toLowerCase()}`); composerInputRef.current?.focus(); notify("Added to your Aurora prompt"); }}>Ask Aurora <MessageCircle size={18} /></button><button className={`secondary-action${savedItems.includes(selectedItem.id) ? " is-success" : ""}`} type="button" aria-pressed={savedItems.includes(selectedItem.id)} onClick={() => toggleSavedItem(selectedItem)}><span className="button-state" key={savedItems.includes(selectedItem.id) ? "saved" : "save"}>{savedItems.includes(selectedItem.id) ? <Check size={18} /> : <Bookmark size={18} />}{savedItems.includes(selectedItem.id) ? "Saved" : "Save"}</span></button></div>
               </div>
             )}
