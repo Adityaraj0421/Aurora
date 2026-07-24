@@ -599,7 +599,7 @@ export function AuroraExperience() {
 
             <section ref={heroRevealRef} className="hero-section reveal-section" data-reveal={heroRevealState} id="inspiration" aria-labelledby="hero-title">
               <div className="hero-card">
-                <Image fill priority src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" sizes="(max-width: 700px) 100vw, 1380px" />
+                <Image fill priority src="/images/dinner-late-set.webp" alt="A couple dining at an intimate candlelit restaurant" sizes="(max-width: 700px) 100vw, 1380px" />
                 <span className="hero-card__light" /><span className="hero-card__veil" />
                 <div className="hero-card__status"><AuroraSignal active /><span>Available to request · checked 18:42 · not held</span></div>
                 <div className="hero-card__copy">
@@ -744,7 +744,7 @@ export function AuroraExperience() {
             <header className="surface-heading"><div><p className="eyebrow">Living itineraries</p><h1>Plans</h1><p>Saved ideas become plans; plans become requests without losing context.</p></div><button className="secondary-action" type="button" onClick={() => setPanel("context")}><SlidersHorizontal size={17} />Shape context</button></header>
             <div className="plan-workspace">
               <article className="plan-hero">
-                <div className="plan-hero__image"><Image fill src="/images/private-dinner.jpg" alt="An intimate dinner planned in Soho" sizes="(max-width: 900px) 100vw, 52vw" /></div>
+                <div className="plan-hero__image"><Image fill src="/images/dinner-late-set.webp" alt="A couple at an intimate dinner planned in Soho" sizes="(max-width: 900px) 100vw, 52vw" /></div>
                 <div className="plan-hero__body">
                   <div className="plan-kicker"><span>Tonight · London</span><span className="plan-state">Ready to request</span></div>
                   <h2>{heroCopy.title}</h2><p>{heroCopy.description}</p>
@@ -792,7 +792,7 @@ export function AuroraExperience() {
               <div className="detail-panel panel-stage" key="detail">
                 <div className="detail-panel__scroll">
                   <div className="detail-hero">
-                    <Image fill src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" sizes="(max-width: 700px) 100vw, 620px" />
+                    <Image fill src="/images/dinner-late-set.webp" alt="A couple dining at an intimate candlelit restaurant" sizes="(max-width: 700px) 100vw, 620px" />
                     <span className="detail-hero__veil" /><div><p className="eyebrow">Tonight · Soho</p><h2>{heroCopy.title}</h2><p>{heroCopy.description}</p></div>
                   </div>
                   <div className="detail-body">
