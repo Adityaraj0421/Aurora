@@ -101,6 +101,12 @@ const discovery: Experience[] = [
 
 const contextOptions = ["Keep it close", "Bring friends", "Slow tomorrow down", "Something new"];
 
+const refinementPrompts = [
+  { title: "Keep tonight close", detail: "Fewer transfers, more time there" },
+  { title: "Make tomorrow slower", detail: "Put recovery ahead of everything else" },
+  { title: "Plan for four", detail: "Open the evening up to friends" },
+];
+
 type RevealState = "idle" | "hidden" | "visible";
 type ContextKey = "location" | "time" | "with";
 
@@ -171,8 +177,8 @@ function useInView<T extends HTMLElement>(rootMargin = "0px 0px -10% 0px") {
   return [ref, revealState] as const;
 }
 
-function AuroraRing({ active = false }: { active?: boolean }) {
-  return <span className={`aurora-ring${active ? " is-active" : ""}`} aria-hidden="true" />;
+function AuroraSignal({ active = false }: { active?: boolean }) {
+  return <span className={`aurora-signal${active ? " is-active" : ""}`} aria-hidden="true" />;
 }
 
 function IconButton({
@@ -268,6 +274,7 @@ export function AuroraExperience() {
   const heroMotionRef = useRef<HTMLDivElement>(null);
   const scrollProgressRef = useRef<HTMLSpanElement>(null);
   const panelTitleRef = useRef<HTMLHeadingElement>(null);
+  const composerInputRef = useRef<HTMLInputElement>(null);
   const reducedMotion = useReducedMotion();
   const [heroRevealRef, heroRevealState] = useInView<HTMLElement>();
   const [tomorrowRevealRef, tomorrowRevealState] = useInView<HTMLElement>();
@@ -411,6 +418,12 @@ export function AuroraExperience() {
     );
   }
 
+  function queuePrompt(prompt: string) {
+    setChatInput(prompt);
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+    notify(`Added “${prompt}” to your prompt`);
+  }
+
   function cycleContextSetting(key: ContextKey) {
     const options = contextSettingOptions[key];
     const currentIndex = options.indexOf(contextSettings[key]);
@@ -502,7 +515,7 @@ export function AuroraExperience() {
             <span className="hero-card__light" />
             <span className="hero-card__veil" />
             <div className="hero-card__status">
-              <AuroraRing active />
+              <AuroraSignal active />
               <span>Aurora can arrange · Tonight</span>
             </div>
             <div className="hero-card__copy">
@@ -636,21 +649,24 @@ export function AuroraExperience() {
           data-reveal={shapeRevealState}
           aria-labelledby="shape-title"
         >
-          <div className="shape-section__presence">
-            <AuroraRing active />
-          </div>
-          <p className="eyebrow">A living edit</p>
-          <h2 id="shape-title">Shape what comes next.</h2>
-          <p>More energy, less travel, somewhere private—tell Aurora what to change.</p>
-          <div className="suggestion-row">
-            {contextOptions.slice(0, 3).map((item) => (
-              <button key={item} type="button" onClick={() => {
-                setChatInput(item);
-                notify(`Added “${item}” to your prompt`);
-              }}>
-                {item}
-              </button>
-            ))}
+          <div className="shape-section__inner">
+            <div className="shape-section__copy">
+              <p className="eyebrow">Refine the edit</p>
+              <h2 id="shape-title">Tell Aurora what matters now.</h2>
+              <p>Change the pace, distance, or company. The whole edit will respond.</p>
+            </div>
+            <div className="refinement-list" aria-label="Ways to refine your edit">
+              {refinementPrompts.map((item, index) => (
+                <button key={item.title} type="button" onClick={() => queuePrompt(item.title)}>
+                  <span className="refinement-list__number">0{index + 1}</span>
+                  <span className="refinement-list__copy">
+                    <strong>{item.title}</strong>
+                    <small>{item.detail}</small>
+                  </span>
+                  <ArrowUpRight size={18} strokeWidth={1.6} />
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       </main>
@@ -660,9 +676,10 @@ export function AuroraExperience() {
         onSubmit={submitChat}
         aria-busy={isCurating}
       >
-        <AuroraRing active />
+        <span className="aurora-composer__label" aria-hidden="true">Aurora</span>
         <label className="sr-only" htmlFor="aurora-prompt">Ask Aurora about London</label>
         <input
+          ref={composerInputRef}
           id="aurora-prompt"
           value={chatInput}
           onChange={(event) => setChatInput(event.target.value)}
@@ -708,7 +725,7 @@ export function AuroraExperience() {
                 </div>
                 <div className="detail-body">
                   <div className="availability-callout">
-                    <AuroraRing active />
+                    <AuroraSignal active />
                     <span><strong>Aurora can currently arrange both stops.</strong> Availability was checked 2 minutes ago.</span>
                   </div>
                   <section className="detail-section" aria-labelledby="timeline-title">
@@ -788,7 +805,7 @@ export function AuroraExperience() {
 
             {panel === "success" && (
               <div className="simple-panel success-panel panel-stage" key="success">
-                <div className="success-mark"><AuroraRing active /></div>
+                <div className="success-mark"><Check size={30} strokeWidth={1.5} /></div>
                 <p className="eyebrow">Request received</p>
                 <h2>We’re arranging your evening.</h2>
                 <p className="panel-intro">Aurora is checking both stops now. We’ll update you here within 15 minutes.</p>
@@ -892,7 +909,7 @@ export function AuroraExperience() {
                   <p className="item-panel__lead">{selectedItem.detail}</p>
                   <div className="item-panel__facts">
                     <span><Clock3 size={17} /> {selectedItem.metadata}</span>
-                    <span><AuroraRing /> {selectedItem.badge}</span>
+                    <span><AuroraSignal /> {selectedItem.badge}</span>
                   </div>
                   <div className="why-now">
                     <h3>Why now</h3>
@@ -922,7 +939,7 @@ export function AuroraExperience() {
       </Dialog.Root>
 
       <div className={`toast${toast ? " is-visible" : ""}`} role="status" aria-live="polite">
-        {toast && <AuroraRing active />}
+        {toast && <AuroraSignal active />}
         <span>{toast}</span>
         {toast && <i className="toast__timer" key={toast} aria-hidden="true" />}
       </div>
