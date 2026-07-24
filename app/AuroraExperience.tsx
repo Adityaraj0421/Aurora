@@ -24,7 +24,6 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 type Surface = "inspiration" | "requests" | "plans";
 type Panel = "detail" | "confirm" | "success" | "context" | "search" | "item" | null;
 type ContextKey = "location" | "time" | "with";
-type RevealState = "idle" | "hidden" | "visible";
 type PlanStepState = "checked" | "request" | "dependent";
 
 type PlanStep = {
@@ -173,39 +172,9 @@ const contextSettingLabels: Record<ContextKey, string> = {
   with: "Company",
 };
 
-function useInView<T extends HTMLElement>(rootMargin = "0px 0px -8% 0px") {
+function useInView<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [revealState, setRevealState] = useState<RevealState>("idle");
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    let frame = 0;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (reduceMotion || !("IntersectionObserver" in window) || node.getBoundingClientRect().top < window.innerHeight * 0.94) {
-      frame = window.requestAnimationFrame(() => setRevealState("visible"));
-      return () => window.cancelAnimationFrame(frame);
-    }
-
-    frame = window.requestAnimationFrame(() => setRevealState("hidden"));
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setRevealState("visible");
-        observer.disconnect();
-      },
-      { threshold: 0.1, rootMargin },
-    );
-
-    observer.observe(node);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [rootMargin]);
-
-  return [ref, revealState] as const;
+  return [ref, "visible"] as const;
 }
 
 function parsePlan(planJson: string): PlanStep[] {

@@ -2622,13 +2622,24 @@ main {
 }
 
 .shape-section {
-  margin-top: clamp(82px, 9vw, 118px);
-  padding-bottom: 116px;
+  margin-top: clamp(60px, 6vw, 84px);
+  padding-bottom: 72px;
 }
 
 .shape-section__inner {
-  min-height: 340px;
-  padding: 52px 0;
+  min-height: 300px;
+  padding: 42px 0;
+}
+
+/* Content must never disappear if a section remounts after surface navigation. */
+.reveal-section[data-reveal] > .hero-card,
+.reveal-section[data-reveal] > .section-heading,
+.reveal-section[data-reveal] .experience-card-shell,
+.reveal-section[data-reveal] > .weekend-card-shell,
+.shape-section[data-reveal] .shape-section__copy,
+.shape-section[data-reveal] .refinement-list {
+  opacity: 1;
+  transform: none;
 }
 
 .shape-section__copy h2 {
@@ -3609,8 +3620,8 @@ main {
   }
 
   .shape-section {
-    margin-top: 84px;
-    padding-bottom: 150px;
+    margin-top: 64px;
+    padding-bottom: 120px;
   }
 
   .product-surface {
