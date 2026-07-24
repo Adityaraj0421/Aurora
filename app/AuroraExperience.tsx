@@ -101,6 +101,76 @@ const discovery: Experience[] = [
 
 const contextOptions = ["Keep it close", "Bring friends", "Slow tomorrow down", "Something new"];
 
+type RevealState = "idle" | "hidden" | "visible";
+type ContextKey = "location" | "time" | "with";
+
+const contextSettingOptions: Record<ContextKey, readonly string[]> = {
+  location: ["London", "Central London", "Within 30 min"],
+  time: ["Until Sunday, 8:00 PM", "Tonight only", "Tomorrow morning"],
+  with: ["Maya", "Solo", "Friends"],
+};
+
+const contextSettingLabels: Record<ContextKey, string> = {
+  location: "Location",
+  time: "Time",
+  with: "Company",
+};
+
+function useReducedMotion() {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  return reducedMotion;
+}
+
+function useInView<T extends HTMLElement>(rootMargin = "0px 0px -10% 0px") {
+  const ref = useRef<T>(null);
+  const [revealState, setRevealState] = useState<RevealState>("idle");
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    let frame = 0;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      frame = window.requestAnimationFrame(() => setRevealState("visible"));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    if (node.getBoundingClientRect().top < window.innerHeight * 0.92) {
+      frame = window.requestAnimationFrame(() => setRevealState("visible"));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    frame = window.requestAnimationFrame(() => setRevealState("hidden"));
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setRevealState("visible");
+        observer.disconnect();
+      },
+      { threshold: 0.12, rootMargin },
+    );
+
+    observer.observe(node);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [rootMargin]);
+
+  return [ref, revealState] as const;
+}
+
 function AuroraRing({ active = false }: { active?: boolean }) {
   return <span className={`aurora-ring${active ? " is-active" : ""}`} aria-hidden="true" />;
 }
@@ -110,14 +180,22 @@ function IconButton({
   children,
   onClick,
   className = "",
+  pressed,
 }: {
   label: string;
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  pressed?: boolean;
 }) {
   return (
-    <button className={`icon-button ${className}`} type="button" aria-label={label} onClick={onClick}>
+    <button
+      className={`icon-button ${className}`}
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
       {children}
     </button>
   );
@@ -135,31 +213,35 @@ function ExperienceCard({
   index?: number;
 }) {
   return (
-    <button
-      className={`experience-card experience-card--${size}`}
-      type="button"
-      onClick={() => onOpen(item)}
+    <div
+      className={`experience-card-shell experience-card-shell--${size}`}
       style={{ "--card-delay": `${index * 70}ms` } as React.CSSProperties}
-      aria-label={`Open ${item.title}`}
     >
-      <img
-        src={item.image}
-        alt=""
-        className="experience-card__image"
-        style={{ objectPosition: item.imagePosition }}
-      />
-      <span className="experience-card__veil" />
-      <span className="experience-card__topline">
-        <span>{item.label}</span>
-        <ArrowUpRight size={18} strokeWidth={1.6} />
-      </span>
-      <span className="experience-card__content">
-        <span className="experience-card__badge">{item.badge}</span>
-        <strong>{item.title}</strong>
-        <span className="experience-card__body">{item.body}</span>
-        <span className="experience-card__meta">{item.metadata}</span>
-      </span>
-    </button>
+      <button
+        className={`experience-card experience-card--${size}`}
+        type="button"
+        onClick={() => onOpen(item)}
+        aria-label={`Open ${item.title}`}
+      >
+        <img
+          src={item.image}
+          alt=""
+          className="experience-card__image"
+          style={{ objectPosition: item.imagePosition }}
+        />
+        <span className="experience-card__veil" />
+        <span className="experience-card__topline">
+          <span>{item.label}</span>
+          <ArrowUpRight size={18} strokeWidth={1.6} />
+        </span>
+        <span className="experience-card__content">
+          <span className="experience-card__badge">{item.badge}</span>
+          <strong>{item.title}</strong>
+          <span className="experience-card__body">{item.body}</span>
+          <span className="experience-card__meta">{item.metadata}</span>
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -168,10 +250,30 @@ export function AuroraExperience() {
   const [selectedItem, setSelectedItem] = useState<Experience | null>(null);
   const [saved, setSaved] = useState(false);
   const [sent, setSent] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isCurating, setIsCurating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [savedItems, setSavedItems] = useState<string[]>([]);
+  const [contextSettings, setContextSettings] = useState<Record<ContextKey, string>>({
+    location: "London",
+    time: "Until Sunday, 8:00 PM",
+    with: "Maya",
+  });
   const [activeContexts, setActiveContexts] = useState<string[]>(["Slow tomorrow down"]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const composerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroMotionRef = useRef<HTMLDivElement>(null);
+  const scrollProgressRef = useRef<HTMLSpanElement>(null);
+  const panelTitleRef = useRef<HTMLHeadingElement>(null);
+  const reducedMotion = useReducedMotion();
+  const [heroRevealRef, heroRevealState] = useInView<HTMLElement>();
+  const [tomorrowRevealRef, tomorrowRevealState] = useInView<HTMLElement>();
+  const [togetherRevealRef, togetherRevealState] = useInView<HTMLElement>();
+  const [discoveryRevealRef, discoveryRevealState] = useInView<HTMLElement>();
+  const [shapeRevealRef, shapeRevealState] = useInView<HTMLElement>();
 
   const panelOpen = panel !== null;
 
@@ -194,8 +296,65 @@ export function AuroraExperience() {
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (confirmationTimer.current) clearTimeout(confirmationTimer.current);
+      if (composerTimer.current) clearTimeout(composerTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (panel === "confirm" || !confirmationTimer.current) return;
+    clearTimeout(confirmationTimer.current);
+    confirmationTimer.current = null;
+    setIsConfirming(false);
+  }, [panel]);
+
+  useEffect(() => {
+    const hero = heroMotionRef.current;
+    const progressBar = scrollProgressRef.current;
+
+    if (reducedMotion) {
+      if (progressBar) progressBar.style.transform = "scaleX(0)";
+      hero?.style.setProperty("--hero-shift", "0px");
+      return;
+    }
+
+    let frame = 0;
+    const updateScrollMotion = () => {
+      const scrollable = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      const progress = Math.max(0, Math.min(window.scrollY / scrollable, 1));
+      let shift = 0;
+
+      if (hero) {
+        const rect = hero.getBoundingClientRect();
+        const distanceFromCenter = window.innerHeight / 2 - (rect.top + rect.height / 2);
+        shift = Math.max(-18, Math.min(18, distanceFromCenter * 0.035));
+      }
+
+      if (progressBar) progressBar.style.transform = `scaleX(${progress})`;
+      hero?.style.setProperty("--hero-shift", `${shift.toFixed(2)}px`);
+
+      frame = 0;
+    };
+    const queueUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateScrollMotion);
+    };
+
+    updateScrollMotion();
+    window.addEventListener("scroll", queueUpdate, { passive: true });
+    window.addEventListener("resize", queueUpdate);
+
+    return () => {
+      window.removeEventListener("scroll", queueUpdate);
+      window.removeEventListener("resize", queueUpdate);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    if (!panel || panel === "search") return;
+    const frame = window.requestAnimationFrame(() => panelTitleRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [panel]);
 
   function openExperience(item: Experience) {
     setSelectedItem(item);
@@ -210,16 +369,40 @@ export function AuroraExperience() {
   }
 
   function sendToMaya() {
+    if (sent) {
+      notify("Already shared privately with Maya");
+      return;
+    }
     setSent(true);
     notify("Sent privately to Maya");
   }
 
+  function confirmRequest() {
+    if (isConfirming) return;
+    setIsConfirming(true);
+    confirmationTimer.current = setTimeout(() => {
+      confirmationTimer.current = null;
+      setIsConfirming(false);
+      setPanel("success");
+    }, 900);
+  }
+
+  function curatePrompt(message: string) {
+    const prompt = message.trim();
+    if (!prompt || isCurating) return;
+
+    setChatInput("");
+    setIsCurating(true);
+    composerTimer.current = setTimeout(() => {
+      composerTimer.current = null;
+      setIsCurating(false);
+      notify(`Aurora is shaping an edit around “${prompt}”`);
+    }, 850);
+  }
+
   function submitChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = chatInput.trim();
-    if (!message) return;
-    setChatInput("");
-    notify(`Aurora is considering “${message}”`);
+    curatePrompt(chatInput);
   }
 
   function toggleContext(option: string) {
@@ -228,11 +411,30 @@ export function AuroraExperience() {
     );
   }
 
+  function cycleContextSetting(key: ContextKey) {
+    const options = contextSettingOptions[key];
+    const currentIndex = options.indexOf(contextSettings[key]);
+    const nextValue = options[(currentIndex + 1) % options.length];
+
+    setContextSettings((current) => ({ ...current, [key]: nextValue }));
+    notify(`${contextSettingLabels[key]} updated to ${nextValue}`);
+  }
+
+  function toggleSavedItem(item: Experience) {
+    const isSaved = savedItems.includes(item.id);
+    setSavedItems((current) =>
+      isSaved ? current.filter((itemId) => itemId !== item.id) : [...current, item.id],
+    );
+    notify(isSaved ? "Removed from saved" : `Saved “${item.title}”`);
+  }
+
   return (
     <div className="aurora-app">
       <a className="skip-link" href="#main-content">
         Skip to inspiration
       </a>
+
+      <div className="scroll-progress" aria-hidden="true"><span ref={scrollProgressRef} /></div>
 
       <header className="site-header">
         <a className="wordmark" href="#top" aria-label="Aurora home">
@@ -275,21 +477,27 @@ export function AuroraExperience() {
           <div className="context-strip" aria-label="Current personal context">
             <button type="button" onClick={() => setPanel("context")}>
               <MapPin size={16} />
-              In London
+              {contextSettings.location}
             </button>
             <button type="button" onClick={() => setPanel("context")}>
               <CalendarDays size={16} />
-              Until Sunday, 8:00 PM
+              {contextSettings.time}
             </button>
             <button type="button" onClick={() => setPanel("context")}>
               <Users size={16} />
-              With Maya
+              {contextSettings.with === "Maya" ? "With Maya" : contextSettings.with}
             </button>
           </div>
         </section>
 
-        <section className="hero-section" id="inspiration" aria-labelledby="hero-title">
-          <div className="hero-card">
+        <section
+          ref={heroRevealRef}
+          className="hero-section reveal-section"
+          data-reveal={heroRevealState}
+          id="inspiration"
+          aria-labelledby="hero-title"
+        >
+          <div className="hero-card" ref={heroMotionRef}>
             <img src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" />
             <span className="hero-card__light" />
             <span className="hero-card__veil" />
@@ -313,11 +521,18 @@ export function AuroraExperience() {
                   See the evening
                   <ArrowRight size={18} />
                 </button>
-                <button className="secondary-action" type="button" onClick={sendToMaya}>
-                  {sent ? <Check size={18} /> : <Send size={18} />}
-                  {sent ? "Sent to Maya" : "Send to Maya"}
+                <button className={`secondary-action${sent ? " is-success" : ""}`} type="button" onClick={sendToMaya}>
+                  <span className="button-state" key={sent ? "sent" : "send"}>
+                    {sent ? <Check size={18} /> : <Send size={18} />}
+                    {sent ? "Sent to Maya" : "Send to Maya"}
+                  </span>
                 </button>
-                <IconButton label={saved ? "Remove saved plan" : "Save this plan"} onClick={toggleSaved} className={saved ? "is-selected" : ""}>
+                <IconButton
+                  label={saved ? "Remove saved plan" : "Save this plan"}
+                  onClick={toggleSaved}
+                  className={saved ? "is-selected" : ""}
+                  pressed={saved}
+                >
                   <Bookmark size={19} fill={saved ? "currentColor" : "none"} />
                 </IconButton>
               </div>
@@ -325,7 +540,12 @@ export function AuroraExperience() {
           </div>
         </section>
 
-        <section className="content-section" aria-labelledby="tomorrow-title">
+        <section
+          ref={tomorrowRevealRef}
+          className="content-section reveal-section"
+          data-reveal={tomorrowRevealState}
+          aria-labelledby="tomorrow-title"
+        >
           <div className="section-heading">
             <div>
               <p className="eyebrow">Your next clear window</p>
@@ -340,7 +560,12 @@ export function AuroraExperience() {
           </div>
         </section>
 
-        <section className="content-section" aria-labelledby="together-title">
+        <section
+          ref={togetherRevealRef}
+          className="content-section reveal-section"
+          data-reveal={togetherRevealState}
+          aria-labelledby="together-title"
+        >
           <div className="section-heading">
             <div>
               <p className="eyebrow">Built from your shared saves</p>
@@ -352,36 +577,43 @@ export function AuroraExperience() {
               <small>3 shared saves</small>
             </div>
           </div>
-          <button
-            className="weekend-card"
-            type="button"
-            onClick={() =>
-              openExperience({
-                id: "bruton",
-                image: "/images/bruton-manor.jpg",
-                imagePosition: "50% 54%",
-                label: "A weekend to keep",
-                title: "Forty-eight hours in Bruton.",
-                body: "Art, long lunches and nowhere else to be.",
-                metadata: "17–19 October · 2 hr 5 min from London",
-                badge: "3 shared saves",
-                detail: "A countryside weekend drawn from the places you and Maya have both kept returning to.",
-              })
-            }
-          >
-            <img src="/images/bruton-manor.jpg" alt="An English manor set within a quiet country landscape" />
-            <span className="weekend-card__veil" />
-            <span className="weekend-card__copy">
-              <span className="eyebrow">A weekend to keep</span>
-              <strong>Forty-eight hours in Bruton.</strong>
-              <span>Art, long lunches and nowhere else to be.</span>
-              <span className="weekend-card__meta">17–19 October · 2 hr 5 min from London</span>
-            </span>
-            <span className="weekend-card__action">Open the weekend <ArrowUpRight size={18} /></span>
-          </button>
+          <div className="weekend-card-shell">
+            <button
+              className="weekend-card"
+              type="button"
+              onClick={() =>
+                openExperience({
+                  id: "bruton",
+                  image: "/images/bruton-manor.jpg",
+                  imagePosition: "50% 54%",
+                  label: "A weekend to keep",
+                  title: "Forty-eight hours in Bruton.",
+                  body: "Art, long lunches and nowhere else to be.",
+                  metadata: "17–19 October · 2 hr 5 min from London",
+                  badge: "3 shared saves",
+                  detail: "A countryside weekend drawn from the places you and Maya have both kept returning to.",
+                })
+              }
+            >
+              <img src="/images/bruton-manor.jpg" alt="An English manor set within a quiet country landscape" />
+              <span className="weekend-card__veil" />
+              <span className="weekend-card__copy">
+                <span className="eyebrow">A weekend to keep</span>
+                <strong>Forty-eight hours in Bruton.</strong>
+                <span>Art, long lunches and nowhere else to be.</span>
+                <span className="weekend-card__meta">17–19 October · 2 hr 5 min from London</span>
+              </span>
+              <span className="weekend-card__action">Open the weekend <ArrowUpRight size={18} /></span>
+            </button>
+          </div>
         </section>
 
-        <section className="content-section" aria-labelledby="discovery-title">
+        <section
+          ref={discoveryRevealRef}
+          className="content-section reveal-section"
+          data-reveal={discoveryRevealState}
+          aria-labelledby="discovery-title"
+        >
           <div className="section-heading">
             <div>
               <p className="eyebrow">A little further out</p>
@@ -398,7 +630,12 @@ export function AuroraExperience() {
           </div>
         </section>
 
-        <section className="shape-section" aria-labelledby="shape-title">
+        <section
+          ref={shapeRevealRef}
+          className="shape-section reveal-section"
+          data-reveal={shapeRevealState}
+          aria-labelledby="shape-title"
+        >
           <div className="shape-section__presence">
             <AuroraRing active />
           </div>
@@ -418,7 +655,11 @@ export function AuroraExperience() {
         </section>
       </main>
 
-      <form className="aurora-composer" onSubmit={submitChat}>
+      <form
+        className={`aurora-composer${chatInput.trim() ? " has-prompt" : ""}${isCurating ? " is-loading" : ""}`}
+        onSubmit={submitChat}
+        aria-busy={isCurating}
+      >
         <AuroraRing active />
         <label className="sr-only" htmlFor="aurora-prompt">Ask Aurora about London</label>
         <input
@@ -427,10 +668,14 @@ export function AuroraExperience() {
           onChange={(event) => setChatInput(event.target.value)}
           placeholder="Ask Aurora about London"
           autoComplete="off"
+          disabled={isCurating}
         />
-        <button type="submit" aria-label="Send to Aurora" disabled={!chatInput.trim()}>
-          <ArrowUpRight size={19} />
+        <button type="submit" aria-label={isCurating ? "Aurora is curating" : "Send to Aurora"} disabled={!chatInput.trim() || isCurating}>
+          {isCurating ? <span className="button-spinner" aria-hidden="true" /> : <ArrowUpRight size={19} />}
         </button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {isCurating ? "Aurora is curating your request." : ""}
+        </span>
       </form>
 
       <footer className="site-footer">
@@ -443,7 +688,7 @@ export function AuroraExperience() {
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay" />
           <Dialog.Content className={`dialog-content dialog-content--${panel ?? "default"}`} aria-describedby={undefined}>
-            <Dialog.Title className="sr-only">{panelTitle}</Dialog.Title>
+            <Dialog.Title ref={panelTitleRef} className="sr-only" tabIndex={-1}>{panelTitle}</Dialog.Title>
             <Dialog.Close asChild>
               <IconButton label="Close panel" className="dialog-close">
                 <X size={20} />
@@ -451,7 +696,7 @@ export function AuroraExperience() {
             </Dialog.Close>
 
             {panel === "detail" && (
-              <div className="detail-panel">
+              <div className="detail-panel panel-stage" key="detail">
                 <div className="detail-hero">
                   <img src="/images/private-dinner.jpg" alt="Friends gathered around an intimate candlelit table" />
                   <span className="detail-hero__veil" />
@@ -499,15 +744,17 @@ export function AuroraExperience() {
                   <button className="primary-action" type="button" onClick={() => setPanel("confirm")}>
                     Ask Aurora to arrange <ArrowRight size={18} />
                   </button>
-                  <button className="secondary-action" type="button" onClick={sendToMaya}>
-                    {sent ? <Check size={18} /> : <Send size={18} />} {sent ? "Sent" : "Send to Maya"}
+                  <button className={`secondary-action${sent ? " is-success" : ""}`} type="button" onClick={sendToMaya}>
+                    <span className="button-state" key={sent ? "sent" : "send"}>
+                      {sent ? <Check size={18} /> : <Send size={18} />} {sent ? "Sent" : "Send to Maya"}
+                    </span>
                   </button>
                 </div>
               </div>
             )}
 
             {panel === "confirm" && (
-              <div className="simple-panel confirmation-panel">
+              <div className="simple-panel confirmation-panel panel-stage" key="confirm">
                 <button className="back-button" type="button" onClick={() => setPanel("detail")}>
                   <ArrowLeft size={18} /> Back
                 </button>
@@ -527,8 +774,12 @@ export function AuroraExperience() {
                 </label>
                 <div className="reassurance"><Check size={16} /> No charge will be made yet.</div>
                 <div className="panel-actions panel-actions--stacked">
-                  <button className="primary-action" type="button" onClick={() => setPanel("success")}>
-                    Confirm request <ArrowRight size={18} />
+                  <button className="primary-action" type="button" onClick={confirmRequest} disabled={isConfirming} aria-busy={isConfirming}>
+                    {isConfirming ? (
+                      <span className="button-state"><span className="button-spinner" aria-hidden="true" /> Arranging…</span>
+                    ) : (
+                      <span className="button-state">Confirm request <ArrowRight size={18} /></span>
+                    )}
                   </button>
                   <button className="secondary-action" type="button" onClick={() => setPanel(null)}>Not yet</button>
                 </div>
@@ -536,7 +787,7 @@ export function AuroraExperience() {
             )}
 
             {panel === "success" && (
-              <div className="simple-panel success-panel">
+              <div className="simple-panel success-panel panel-stage" key="success">
                 <div className="success-mark"><AuroraRing active /></div>
                 <p className="eyebrow">Request received</p>
                 <h2>We’re arranging your evening.</h2>
@@ -557,14 +808,23 @@ export function AuroraExperience() {
             )}
 
             {panel === "context" && (
-              <div className="simple-panel context-panel">
+              <div className="simple-panel context-panel panel-stage" key="context">
                 <p className="eyebrow">Personal context</p>
                 <h2>Shape your edit.</h2>
                 <p className="panel-intro">Aurora uses only what is useful now. Adjust the signals behind this London edit.</p>
                 <div className="context-details">
-                  <button type="button"><span><MapPin size={18} /> Location</span><strong>London <ChevronDown size={16} /></strong></button>
-                  <button type="button"><span><CalendarDays size={18} /> Time</span><strong>Until Sun, 8:00 PM <ChevronDown size={16} /></strong></button>
-                  <button type="button"><span><Users size={18} /> With</span><strong>Maya <ChevronDown size={16} /></strong></button>
+                  <button type="button" aria-label={`Change location, currently ${contextSettings.location}`} onClick={() => cycleContextSetting("location")}>
+                    <span><MapPin size={18} /> Location</span>
+                    <strong><span className="setting-value" key={contextSettings.location}>{contextSettings.location}</span> <ChevronDown size={16} /></strong>
+                  </button>
+                  <button type="button" aria-label={`Change time, currently ${contextSettings.time}`} onClick={() => cycleContextSetting("time")}>
+                    <span><CalendarDays size={18} /> Time</span>
+                    <strong><span className="setting-value" key={contextSettings.time}>{contextSettings.time}</span> <ChevronDown size={16} /></strong>
+                  </button>
+                  <button type="button" aria-label={`Change company, currently ${contextSettings.with}`} onClick={() => cycleContextSetting("with")}>
+                    <span><Users size={18} /> With</span>
+                    <strong><span className="setting-value" key={contextSettings.with}>{contextSettings.with}</span> <ChevronDown size={16} /></strong>
+                  </button>
                 </div>
                 <fieldset className="intent-fieldset">
                   <legend>What should this edit feel like?</legend>
@@ -588,20 +848,31 @@ export function AuroraExperience() {
             )}
 
             {panel === "search" && (
-              <div className="simple-panel search-panel">
+              <div className="simple-panel search-panel panel-stage" key="search">
                 <p className="eyebrow">Beyond the edit</p>
                 <h2>What are you looking for?</h2>
                 <label className="search-field">
                   <Search size={20} />
                   <span className="sr-only">Search inspiration</span>
-                  <input autoFocus placeholder="A place, feeling or idea" onKeyDown={(event) => {
-                    if (event.key === "Enter") { setPanel(null); notify("Aurora is curating new ideas"); }
-                  }} />
+                  <input
+                    autoFocus
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="A place, feeling or idea"
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || !searchInput.trim()) return;
+                      event.preventDefault();
+                      const query = searchInput;
+                      setSearchInput("");
+                      setPanel(null);
+                      curatePrompt(query);
+                    }}
+                  />
                 </label>
                 <div className="search-suggestions">
                   <p>Try something considered</p>
                   {["A private room for eight", "A restorative day near London", "Live music after dinner", "Somewhere worth flying for"].map((item) => (
-                    <button key={item} type="button" onClick={() => { setPanel(null); setChatInput(item); notify(`Added “${item}” to your prompt`); }}>
+                    <button key={item} type="button" onClick={() => { setSearchInput(""); setPanel(null); setChatInput(item); notify(`Added “${item}” to your prompt`); }}>
                       {item}<ArrowUpRight size={17} />
                     </button>
                   ))}
@@ -610,7 +881,7 @@ export function AuroraExperience() {
             )}
 
             {panel === "item" && selectedItem && (
-              <div className="item-panel">
+              <div className="item-panel panel-stage" key={selectedItem.id}>
                 <div className="item-panel__image">
                   <img src={selectedItem.image} alt="" style={{ objectPosition: selectedItem.imagePosition }} />
                   <span />
@@ -632,7 +903,17 @@ export function AuroraExperience() {
                   <button className="primary-action" type="button" onClick={() => { setPanel(null); setChatInput(`Can you arrange ${selectedItem.title.toLowerCase()}`); notify("Added to your Aurora prompt"); }}>
                     Ask Aurora <MessageCircle size={18} />
                   </button>
-                  <button className="secondary-action" type="button" onClick={() => notify("Saved to London")}><Bookmark size={18} /> Save</button>
+                  <button
+                    className={`secondary-action${savedItems.includes(selectedItem.id) ? " is-success" : ""}`}
+                    type="button"
+                    aria-pressed={savedItems.includes(selectedItem.id)}
+                    onClick={() => toggleSavedItem(selectedItem)}
+                  >
+                    <span className="button-state" key={savedItems.includes(selectedItem.id) ? "saved" : "save"}>
+                      {savedItems.includes(selectedItem.id) ? <Check size={18} /> : <Bookmark size={18} />}
+                      {savedItems.includes(selectedItem.id) ? "Saved" : "Save"}
+                    </span>
+                  </button>
                 </div>
               </div>
             )}
@@ -641,8 +922,17 @@ export function AuroraExperience() {
       </Dialog.Root>
 
       <div className={`toast${toast ? " is-visible" : ""}`} role="status" aria-live="polite">
-        <AuroraRing active />
+        {toast && <AuroraRing active />}
         <span>{toast}</span>
+        {toast && <i className="toast__timer" key={toast} aria-hidden="true" />}
+      </div>
+
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {isConfirming
+          ? "Aurora is arranging your request."
+          : panel === "success"
+            ? "Request received. Aurora is arranging your evening."
+            : ""}
       </div>
     </div>
   );

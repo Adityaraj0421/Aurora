@@ -36,8 +36,13 @@
   --page-width: 1380px;
   --radius-control: 10px;
   --radius-card: 18px;
-  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
-  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-feedback: 140ms;
+  --duration-small: 240ms;
+  --duration-reveal: 480ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-sheet: var(--ease-out);
   color-scheme: dark;
 }
 
@@ -123,6 +128,27 @@ img {
 
 .skip-link:focus {
   transform: translateY(0);
+}
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 310;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scroll-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), #ffbd72);
+  box-shadow: 0 0 12px rgba(255, 143, 25, 0.45);
+  transform: scaleX(0);
+  transform-origin: left center;
 }
 
 .aurora-app {
@@ -261,6 +287,18 @@ main {
   padding-bottom: clamp(40px, 6vw, 74px);
 }
 
+.intro__context {
+  animation: intro-enter var(--duration-reveal) var(--ease-out) 40ms both;
+}
+
+.intro__heading-row {
+  animation: intro-enter 560ms var(--ease-out) 110ms both;
+}
+
+.intro .context-strip {
+  animation: intro-enter var(--duration-reveal) var(--ease-out) 210ms both;
+}
+
 .intro__context,
 .eyebrow {
   display: flex;
@@ -381,8 +419,8 @@ main {
   object-fit: cover;
   object-position: 50% 55%;
   filter: saturate(0.86) contrast(1.04);
-  transform: scale(1.012);
-  animation: hero-reveal 1.1s var(--ease-out) both;
+  transform: translate3d(0, var(--hero-shift, 0), 0) scale(1.07);
+  animation: hero-image-in 900ms var(--ease-out) both;
 }
 
 .hero-card__light {
@@ -395,7 +433,7 @@ main {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 122, 15, 0.22), transparent 66%);
   filter: blur(36px);
-  animation: ember-drift 50s ease-in-out infinite alternate;
+  animation: ember-drift 40s var(--ease-out) both;
 }
 
 .hero-card__veil {
@@ -446,8 +484,17 @@ main {
 
 .aurora-ring.is-active {
   border-color: var(--orange);
-  box-shadow: 0 0 0 4px rgba(255, 143, 25, 0.08), 0 0 18px rgba(255, 143, 25, 0.32);
-  animation: presence-pulse 2.6s ease-in-out infinite;
+  box-shadow: 0 0 16px rgba(255, 143, 25, 0.28);
+}
+
+.aurora-ring.is-active::before {
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(255, 143, 25, 0.22);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: presence-halo 2.6s var(--ease-in-out) 3;
 }
 
 .aurora-ring.is-active::after {
@@ -518,7 +565,12 @@ main {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition:
+    color var(--duration-feedback) var(--ease-out),
+    background var(--duration-feedback) var(--ease-out),
+    border-color var(--duration-feedback) var(--ease-out),
+    transform var(--duration-feedback) var(--ease-out),
+    opacity var(--duration-feedback) var(--ease-out);
 }
 
 .primary-action {
@@ -528,6 +580,12 @@ main {
 
 .primary-action:hover {
   background: var(--orange-hover);
+}
+
+.primary-action:hover svg,
+.text-action:hover svg,
+.search-suggestions button:hover svg {
+  transform: translateX(3px);
 }
 
 .primary-action:active,
@@ -545,6 +603,79 @@ main {
 .secondary-action:hover {
   border-color: rgba(255, 255, 255, 0.24);
   background: rgba(255, 255, 255, 0.1);
+}
+
+.secondary-action.is-success {
+  border-color: rgba(255, 143, 25, 0.32);
+  color: #ffd3a6;
+  background: rgba(255, 143, 25, 0.1);
+}
+
+.button-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  animation: state-swap var(--duration-small) var(--ease-out) both;
+}
+
+.button-state svg,
+.primary-action > svg,
+.text-action svg,
+.search-suggestions button svg {
+  transition: transform var(--duration-small) var(--ease-out);
+}
+
+.button-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(19, 9, 4, 0.28);
+  border-top-color: #130904;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.primary-action:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.icon-button.is-selected svg {
+  animation: save-pop 280ms var(--ease-out) both;
+}
+
+.reveal-section[data-reveal="hidden"] > .hero-card,
+.reveal-section[data-reveal="hidden"] > .section-heading,
+.reveal-section[data-reveal="hidden"] .experience-card-shell,
+.reveal-section[data-reveal="hidden"] > .weekend-card-shell {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.reveal-section[data-reveal="visible"] > .hero-card,
+.reveal-section[data-reveal="visible"] > .section-heading,
+.reveal-section[data-reveal="visible"] .experience-card-shell,
+.reveal-section[data-reveal="visible"] > .weekend-card-shell {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-section > .hero-card,
+.reveal-section > .section-heading,
+.reveal-section .experience-card-shell,
+.reveal-section > .weekend-card-shell {
+  transition:
+    opacity var(--duration-reveal) var(--ease-out),
+    transform var(--duration-reveal) var(--ease-out);
+}
+
+.reveal-section[data-reveal="visible"] .experience-card-shell {
+  transition-delay: var(--card-delay);
+}
+
+.reveal-section[data-reveal="visible"] > .weekend-card-shell {
+  transition-delay: 80ms;
 }
 
 .content-section {
@@ -579,12 +710,21 @@ main {
   gap: 16px;
 }
 
-.experience-card {
+.experience-card-shell {
   --card-delay: 0ms;
+  min-height: 600px;
+}
+
+.experience-card-shell--compact {
+  min-height: 520px;
+}
+
+.experience-card {
   position: relative;
   display: block;
   width: 100%;
-  min-height: 600px;
+  height: 100%;
+  min-height: inherit;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-card);
@@ -593,11 +733,14 @@ main {
   cursor: pointer;
   text-align: left;
   isolation: isolate;
-  animation: card-enter 700ms var(--ease-out) var(--card-delay) both;
+  transition:
+    transform var(--duration-small) var(--ease-out),
+    border-color var(--duration-feedback) var(--ease-out),
+    box-shadow var(--duration-small) var(--ease-out);
 }
 
 .experience-card--compact {
-  min-height: 520px;
+  min-height: inherit;
 }
 
 .experience-card__image,
@@ -623,6 +766,24 @@ main {
 .experience-card:hover .experience-card__image {
   filter: saturate(0.96) contrast(1.04);
   transform: scale(1.025);
+}
+
+.experience-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.34);
+  transform: translateY(-3px);
+}
+
+.experience-card:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+.experience-card__topline svg {
+  transition: transform var(--duration-small) var(--ease-out);
+}
+
+.experience-card:hover .experience-card__topline svg {
+  transform: translate(2px, -2px);
 }
 
 .experience-card__topline {
@@ -718,11 +879,16 @@ main {
   font-size: 12px;
 }
 
+.weekend-card-shell {
+  min-height: clamp(540px, 63vw, 720px);
+}
+
 .weekend-card {
   position: relative;
   display: block;
   width: 100%;
-  min-height: clamp(540px, 63vw, 720px);
+  height: 100%;
+  min-height: inherit;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-card);
@@ -731,6 +897,10 @@ main {
   cursor: pointer;
   text-align: left;
   isolation: isolate;
+  transition:
+    transform var(--duration-small) var(--ease-out),
+    border-color var(--duration-feedback) var(--ease-out),
+    box-shadow var(--duration-small) var(--ease-out);
 }
 
 .weekend-card > img,
@@ -752,6 +922,16 @@ main {
 .weekend-card:hover > img {
   filter: saturate(0.8) contrast(1.03) brightness(0.86);
   transform: scale(1.018);
+}
+
+.weekend-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 24px 62px rgba(0, 0, 0, 0.36);
+  transform: translateY(-3px);
+}
+
+.weekend-card:active {
+  transform: translateY(-1px) scale(0.997);
 }
 
 .weekend-card__veil {
@@ -808,6 +988,14 @@ main {
   font-size: 12px;
 }
 
+.weekend-card__action svg {
+  transition: transform var(--duration-small) var(--ease-out);
+}
+
+.weekend-card:hover .weekend-card__action svg {
+  transform: translate(2px, -2px);
+}
+
 .discovery-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -846,6 +1034,43 @@ main {
   border-radius: 50%;
   box-shadow: 0 0 120px rgba(255, 111, 0, 0.06) inset;
   content: "";
+}
+
+.shape-section[data-reveal="hidden"] > .shape-section__presence,
+.shape-section[data-reveal="hidden"] > .eyebrow,
+.shape-section[data-reveal="hidden"] > h2,
+.shape-section[data-reveal="hidden"] > p,
+.shape-section[data-reveal="hidden"] > .suggestion-row {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.shape-section[data-reveal="visible"] > .shape-section__presence,
+.shape-section[data-reveal="visible"] > .eyebrow,
+.shape-section[data-reveal="visible"] > h2,
+.shape-section[data-reveal="visible"] > p,
+.shape-section[data-reveal="visible"] > .suggestion-row {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.shape-section > .shape-section__presence,
+.shape-section > .eyebrow,
+.shape-section > h2,
+.shape-section > p,
+.shape-section > .suggestion-row {
+  transition:
+    opacity var(--duration-reveal) var(--ease-out),
+    transform var(--duration-reveal) var(--ease-out);
+}
+
+.shape-section[data-reveal="visible"] > .eyebrow { transition-delay: 60ms; }
+.shape-section[data-reveal="visible"] > h2 { transition-delay: 110ms; }
+.shape-section[data-reveal="visible"] > p { transition-delay: 160ms; }
+.shape-section[data-reveal="visible"] > .suggestion-row { transition-delay: 220ms; }
+
+.shape-section[data-reveal="hidden"] .aurora-ring.is-active::before {
+  animation-play-state: paused;
 }
 
 .shape-section__presence {
@@ -926,6 +1151,21 @@ main {
   backdrop-filter: blur(22px) saturate(145%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.42);
   transform: translateX(-50%);
+  transition:
+    border-color var(--duration-small) var(--ease-out),
+    background var(--duration-small) var(--ease-out),
+    box-shadow var(--duration-small) var(--ease-out);
+}
+
+.aurora-composer:focus-within,
+.aurora-composer.has-prompt {
+  border-color: rgba(255, 143, 25, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 18px 52px rgba(0, 0, 0, 0.46), 0 0 0 3px rgba(255, 143, 25, 0.06);
+}
+
+.aurora-composer.is-loading {
+  border-color: rgba(255, 143, 25, 0.48);
+  background: rgba(24, 18, 13, 0.9);
 }
 
 .aurora-composer input {
@@ -952,7 +1192,26 @@ main {
   color: #170b03;
   background: var(--orange);
   cursor: pointer;
-  transition: background 180ms ease, opacity 180ms ease;
+  transition:
+    background var(--duration-feedback) var(--ease-out),
+    opacity var(--duration-feedback) var(--ease-out),
+    transform var(--duration-feedback) var(--ease-out);
+}
+
+.aurora-composer button:not(:disabled):hover {
+  background: var(--orange-hover);
+  transform: scale(1.04);
+}
+
+.aurora-composer button:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+.aurora-composer .button-spinner {
+  width: 17px;
+  height: 17px;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: var(--orange);
 }
 
 .aurora-composer button:disabled {
@@ -991,7 +1250,14 @@ main {
   z-index: 180;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(8px);
-  animation: overlay-in 260ms ease both;
+}
+
+.dialog-overlay[data-state="open"] {
+  animation: overlay-in 220ms var(--ease-out) both;
+}
+
+.dialog-overlay[data-state="closed"] {
+  animation: overlay-out 160ms var(--ease-in) both;
 }
 
 .dialog-content {
@@ -1006,7 +1272,14 @@ main {
   outline: none;
   background: var(--canvas);
   box-shadow: -30px 0 90px rgba(0, 0, 0, 0.5);
-  animation: sheet-in 520ms var(--ease-sheet) both;
+}
+
+.dialog-content[data-state="open"] {
+  animation: sheet-in 420ms var(--ease-sheet) both;
+}
+
+.dialog-content[data-state="closed"] {
+  animation: sheet-out 260ms var(--ease-in) both;
 }
 
 .dialog-close {
@@ -1025,6 +1298,10 @@ main {
   min-height: 460px;
   overflow: hidden;
   isolation: isolate;
+}
+
+.panel-stage {
+  animation: panel-stage-in 300ms var(--ease-out) both;
 }
 
 .detail-hero > img,
@@ -1415,6 +1692,11 @@ main {
   background: transparent;
   cursor: pointer;
   text-align: left;
+  transition: background var(--duration-feedback) var(--ease-out);
+}
+
+.context-details button:hover {
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .context-details button > span,
@@ -1431,6 +1713,10 @@ main {
 
 .context-details button > strong {
   font-weight: 400;
+}
+
+.setting-value {
+  animation: state-swap var(--duration-small) var(--ease-out) both;
 }
 
 .intent-fieldset {
@@ -1585,7 +1871,7 @@ main {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -12px);
-  transition: opacity 200ms ease, transform 300ms var(--ease-out);
+  transition: opacity 180ms var(--ease-out), transform 260ms var(--ease-out);
   font-size: 12px;
 }
 
@@ -1594,19 +1880,61 @@ main {
   transform: translate(-50%, 0);
 }
 
-@keyframes hero-reveal {
-  from { opacity: 0; transform: scale(1.04); }
-  to { opacity: 1; transform: scale(1.012); }
+.toast__timer {
+  position: absolute;
+  right: 14px;
+  bottom: 2px;
+  left: 14px;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--orange), rgba(255, 143, 25, 0.25));
+  transform-origin: left center;
+  animation: toast-countdown 2800ms linear both;
 }
 
-@keyframes card-enter {
-  from { opacity: 0; transform: translateY(18px); }
+@keyframes intro-enter {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes hero-image-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes state-swap {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes save-pop {
+  0% { transform: scale(0.76); }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes panel-stage-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes toast-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 @keyframes presence-pulse {
-  0%, 100% { opacity: 0.82; box-shadow: 0 0 0 4px rgba(255, 143, 25, 0.06), 0 0 15px rgba(255, 143, 25, 0.2); }
-  50% { opacity: 1; box-shadow: 0 0 0 6px rgba(255, 143, 25, 0.1), 0 0 24px rgba(255, 143, 25, 0.42); }
+  0%, 100% { opacity: 0.58; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes presence-halo {
+  0%, 100% { opacity: 0.35; transform: scale(0.78); }
+  50% { opacity: 0.8; transform: scale(1.16); }
 }
 
 @keyframes ember-drift {
@@ -1619,9 +1947,19 @@ main {
   to { opacity: 1; }
 }
 
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @keyframes sheet-in {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+@keyframes sheet-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
 }
 
 @media (max-width: 960px) {
@@ -1641,7 +1979,7 @@ main {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .discovery-grid .experience-card:last-child {
+  .discovery-grid .experience-card-shell:last-child {
     grid-column: 1 / -1;
     min-height: 540px;
   }
@@ -1802,9 +2140,9 @@ main {
     gap: 12px;
   }
 
-  .experience-card,
-  .experience-card--compact,
-  .discovery-grid .experience-card:last-child {
+  .experience-card-shell,
+  .experience-card-shell--compact,
+  .discovery-grid .experience-card-shell:last-child {
     grid-column: auto;
     min-height: 540px;
   }
@@ -1820,6 +2158,7 @@ main {
     font-size: 31px;
   }
 
+  .weekend-card-shell,
   .weekend-card {
     min-height: 620px;
   }
@@ -1876,7 +2215,14 @@ main {
     border-top: 1px solid var(--hairline);
     border-left: 0;
     border-radius: 24px 24px 0 0;
+  }
+
+  .dialog-content[data-state="open"] {
     animation-name: sheet-up;
+  }
+
+  .dialog-content[data-state="closed"] {
+    animation-name: sheet-down;
   }
 
   .dialog-close {
@@ -1937,7 +2283,16 @@ main {
   to { transform: translateY(0); }
 }
 
+@keyframes sheet-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .scroll-progress {
+    display: none;
+  }
+
   *,
   *::before,
   *::after {
