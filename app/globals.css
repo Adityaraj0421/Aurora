@@ -1254,7 +1254,9 @@ main {
 }
 
 .dialog-content[data-state="open"] {
-  animation: sheet-in 420ms var(--ease-sheet) both;
+  /* Do not retain the final transform: it would make every fixed CTA and close
+     control scroll with the transformed sheet instead of the viewport. */
+  animation: sheet-in 420ms var(--ease-sheet);
 }
 
 .dialog-content[data-state="closed"] {

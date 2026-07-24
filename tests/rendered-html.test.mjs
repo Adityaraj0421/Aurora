@@ -64,5 +64,9 @@ test("ships the Aurora brand assets and removes starter infrastructure", async (
   assert.match(experience, /Your timeline is live/i);
   assert.match(css, /--orange:\s*#ff8f19/i);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(
+    css,
+    /\.dialog-content\[data-state="open"\]\s*\{[^}]*animation:\s*sheet-in\s+420ms\s+var\(--ease-sheet\);/s,
+  );
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });
