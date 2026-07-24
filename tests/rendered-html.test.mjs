@@ -37,7 +37,7 @@ test("server-renders the Aurora Inspiration experience", async () => {
   assert.match(html, /For tomorrow morning/);
   assert.match(html, /Worth making room for/);
   assert.match(html, /Tell Aurora what to change/);
-  assert.match(html, /https?:\/\/[^\"']+\/og\.png/);
+  assert.match(html, /https?:\/\/[^\"']+\/og\.jpg/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|SkeletonPreview/);
 });
 
@@ -53,7 +53,7 @@ test("ships the Aurora brand assets and removes starter infrastructure", async (
   await Promise.all([
     access(new URL("public/aurora-logo.png", templateRoot)),
     access(new URL("public/favicon.png", templateRoot)),
-    access(new URL("public/og.png", templateRoot)),
+    access(new URL("public/og.jpg", templateRoot)),
     access(new URL("public/fonts/Hellix-Regular.woff2", templateRoot)),
     access(new URL("public/images/private-dinner.jpg", templateRoot)),
   ]);

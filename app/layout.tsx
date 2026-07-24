@@ -27,13 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Inspiration — Aurora",
       description: "Inspiration, shaped around your life—from discovery to fulfilment in one private context.",
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Aurora — Inspiration, shaped around your life" }],
+      images: [{ url: `${origin}/og.jpg`, width: 1200, height: 630, alt: "Aurora — Inspiration, shaped around your life" }],
     },
     twitter: {
       card: "summary_large_image",
       title: "Inspiration — Aurora",
       description: "Inspiration, shaped around your life—from discovery to fulfilment in one private context.",
-      images: [`${origin}/og.png`],
+      images: [`${origin}/og.jpg`],
     },
   };
 }

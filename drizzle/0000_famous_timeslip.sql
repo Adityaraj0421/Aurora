@@ -7,8 +7,7 @@ CREATE TABLE `requests` (
 	`guests` text DEFAULT 'Aditya + Maya' NOT NULL,
 	`plan_json` text NOT NULL,
 	`note` text DEFAULT '' NOT NULL,
-	`submitted_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`submitted_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `requests_reference_unique` ON `requests` (`reference`);

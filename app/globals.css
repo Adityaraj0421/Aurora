@@ -622,38 +622,23 @@ main {
   animation: save-pop 280ms var(--ease-out) both;
 }
 
-.reveal-section[data-reveal="hidden"] > .hero-card,
-.reveal-section[data-reveal="hidden"] > .section-heading,
-.reveal-section[data-reveal="hidden"] .experience-card-shell,
-.reveal-section[data-reveal="hidden"] > .weekend-card-shell {
-  opacity: 0;
-  transform: translateY(18px);
+/* Recomposition — the signature motion when Aurora reshapes the edit.
+   Reduced-motion is neutralised globally by the * override below. */
+@keyframes recompose-in {
+  0% { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(6px); }
+  55% { filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: none; }
 }
 
-.reveal-section[data-reveal="visible"] > .hero-card,
-.reveal-section[data-reveal="visible"] > .section-heading,
-.reveal-section[data-reveal="visible"] .experience-card-shell,
-.reveal-section[data-reveal="visible"] > .weekend-card-shell {
-  opacity: 1;
-  transform: translateY(0);
+main[data-recomposing] .hero-card__copy,
+main[data-recomposing] .editorial-list > *,
+main[data-recomposing] .discovery-grid > * {
+  animation: recompose-in 560ms var(--ease-out) both;
 }
 
-.reveal-section > .hero-card,
-.reveal-section > .section-heading,
-.reveal-section .experience-card-shell,
-.reveal-section > .weekend-card-shell {
-  transition:
-    opacity var(--duration-reveal) var(--ease-out),
-    transform var(--duration-reveal) var(--ease-out);
-}
-
-.reveal-section[data-reveal="visible"] .experience-card-shell {
-  transition-delay: var(--card-delay);
-}
-
-.reveal-section[data-reveal="visible"] > .weekend-card-shell {
-  transition-delay: 80ms;
-}
+main[data-recomposing] .editorial-list > *:nth-child(2) { animation-delay: 70ms; }
+main[data-recomposing] .discovery-grid > *:nth-child(2) { animation-delay: 70ms; }
+main[data-recomposing] .discovery-grid > *:nth-child(3) { animation-delay: 140ms; }
 
 .content-section {
   padding-top: clamp(92px, 12vw, 156px);
@@ -688,7 +673,6 @@ main {
 }
 
 .experience-card-shell {
-  --card-delay: 0ms;
   min-height: 600px;
 }
 
@@ -1081,29 +1065,6 @@ main {
   transform: translate(2px, -2px);
 }
 
-.shape-section[data-reveal="hidden"] .shape-section__copy,
-.shape-section[data-reveal="hidden"] .refinement-list {
-  opacity: 0;
-  transform: translateY(16px);
-}
-
-.shape-section[data-reveal="visible"] .shape-section__copy,
-.shape-section[data-reveal="visible"] .refinement-list {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.shape-section__copy,
-.refinement-list {
-  transition:
-    opacity var(--duration-reveal) var(--ease-out),
-    transform var(--duration-reveal) var(--ease-out);
-}
-
-.shape-section[data-reveal="visible"] .refinement-list {
-  transition-delay: 100ms;
-}
-
 .aurora-composer {
   position: fixed;
   right: 20px;
@@ -1221,6 +1182,14 @@ main {
 
 .site-footer p:last-child {
   text-align: right;
+}
+
+/* Keep the fixed composer from crowding the footer on the inspiration surface
+   (desktop only — narrower breakpoints set their own bottom clearance). */
+@media (min-width: 961px) {
+  .aurora-app[data-surface="inspiration"] .site-footer {
+    padding-bottom: 124px;
+  }
 }
 
 .dialog-overlay {
@@ -2664,17 +2633,6 @@ main {
 .shape-section__inner {
   min-height: 300px;
   padding: 42px 0;
-}
-
-/* Content must never disappear if a section remounts after surface navigation. */
-.reveal-section[data-reveal] > .hero-card,
-.reveal-section[data-reveal] > .section-heading,
-.reveal-section[data-reveal] .experience-card-shell,
-.reveal-section[data-reveal] > .weekend-card-shell,
-.shape-section[data-reveal] .shape-section__copy,
-.shape-section[data-reveal] .refinement-list {
-  opacity: 1;
-  transform: none;
 }
 
 .shape-section__copy h2 {

@@ -43,7 +43,6 @@ type RequestRecord = {
   planJson: string;
   note: string;
   submittedAt: string;
-  updatedAt: string;
 };
 
 type Experience = {
@@ -70,7 +69,7 @@ const eveningPlan: PlanStep[] = [
   {
     time: "8:15 PM",
     title: "Mountain",
-    detail: "Table for two · checked at 18:42 · not held",
+    detail: "Table for two · checked at 6:42 PM · not held",
     state: "checked",
   },
   {
@@ -90,7 +89,7 @@ const eveningPlan: PlanStep[] = [
 const tomorrow: Experience[] = [
   {
     id: "recovery",
-    image: "/images/sauna.jpg",
+    image: "/images/sauna.webp",
     label: "Recovery · 8:30 AM",
     title: "A quieter start.",
     body: "Hydrotherapy, sauna and a short treatment selected around your sleep and travel.",
@@ -101,7 +100,7 @@ const tomorrow: Experience[] = [
   },
   {
     id: "movement",
-    image: "/images/london-arrival.jpg",
+    image: "/images/london-arrival.webp",
     imagePosition: "50% 60%",
     label: "Move · 9:00 AM",
     title: "Hyde Park, before the day begins.",
@@ -116,7 +115,7 @@ const tomorrow: Experience[] = [
 const discovery: Experience[] = [
   {
     id: "art",
-    image: "/images/tate-performance.jpg",
+    image: "/images/tate-performance.webp",
     imagePosition: "50% 42%",
     label: "Art · South Bank",
     title: "Tate, after hours.",
@@ -128,7 +127,7 @@ const discovery: Experience[] = [
   },
   {
     id: "lunch",
-    image: "/images/candlelit-table.jpg",
+    image: "/images/candlelit-table.webp",
     imagePosition: "45% 54%",
     label: "Lunch · Hammersmith",
     title: "Sunday at The River Café.",
@@ -140,7 +139,7 @@ const discovery: Experience[] = [
   },
   {
     id: "escape",
-    image: "/images/london-rain.jpg",
+    image: "/images/london-rain.webp",
     imagePosition: "49% 54%",
     label: "Escape · Kent",
     title: "One night in Deal.",
@@ -172,11 +171,6 @@ const contextSettingLabels: Record<ContextKey, string> = {
   with: "Company",
 };
 
-function useInView<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  return [ref, "visible"] as const;
-}
-
 function parsePlan(planJson: string): PlanStep[] {
   try {
     const value = JSON.parse(planJson) as PlanStep[];
@@ -189,11 +183,11 @@ function parsePlan(planJson: string): PlanStep[] {
 function formatSubmitted(value: string) {
   const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
     timeZone: "Europe/London",
   }).format(date);
 }
@@ -203,7 +197,7 @@ function AuroraSignal({ active = false }: { active?: boolean }) {
 }
 
 function BrandMark({ className = "" }: { className?: string }) {
-  return <Image className={className} src="/aurora-logo.png" alt="Aurora" width={899} height={153} priority />;
+  return <Image className={className} src="/aurora-logo.png" alt="Aurora" width={899} height={153} priority unoptimized />;
 }
 
 function IconButton({
@@ -236,21 +230,19 @@ function ExperienceCard({
   item,
   onOpen,
   featured = false,
-  index = 0,
 }: {
   item: Experience;
   onOpen: (item: Experience) => void;
   featured?: boolean;
-  index?: number;
 }) {
   return (
     <div
       className={`experience-card-shell${featured ? " experience-card-shell--featured" : " experience-card-shell--compact"}`}
-      style={{ "--card-delay": `${index * 70}ms` } as React.CSSProperties}
     >
       <button className="experience-card experience-card--compact" type="button" onClick={() => onOpen(item)} aria-label={`Open ${item.title}`}>
         <Image
           fill
+          unoptimized
           src={item.image}
           alt=""
           className="experience-card__image"
@@ -273,11 +265,11 @@ function ExperienceCard({
   );
 }
 
-function EditorialCard({ item, onOpen, index }: { item: Experience; onOpen: (item: Experience) => void; index: number }) {
+function EditorialCard({ item, onOpen }: { item: Experience; onOpen: (item: Experience) => void }) {
   return (
-    <button className="editorial-card" type="button" onClick={() => onOpen(item)} style={{ "--card-delay": `${index * 70}ms` } as React.CSSProperties}>
+    <button className="editorial-card" type="button" onClick={() => onOpen(item)}>
       <span className="editorial-card__image">
-        <Image fill src={item.image} alt="" style={{ objectPosition: item.imagePosition }} sizes="(max-width: 700px) 34vw, 280px" />
+        <Image fill unoptimized src={item.image} alt="" style={{ objectPosition: item.imagePosition }} sizes="(max-width: 700px) 34vw, 280px" />
       </span>
       <span className="editorial-card__copy">
         <span className="editorial-card__topline"><span>{item.label}</span><span>{item.badge}</span></span>
@@ -326,14 +318,12 @@ export function AuroraExperience() {
   const [draftContexts, setDraftContexts] = useState<string[]>(["Slow tomorrow down"]);
   const [appliedContexts, setAppliedContexts] = useState<string[]>(["Slow tomorrow down"]);
   const [editNotice, setEditNotice] = useState<EditNotice | null>(null);
+  const [greeting, setGreeting] = useState("Good evening");
+  const [isRecomposing, setIsRecomposing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recomposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
-  const [heroRevealRef, heroRevealState] = useInView<HTMLElement>();
-  const [tomorrowRevealRef, tomorrowRevealState] = useInView<HTMLElement>();
-  const [togetherRevealRef, togetherRevealState] = useInView<HTMLElement>();
-  const [discoveryRevealRef, discoveryRevealState] = useInView<HTMLElement>();
-  const [shapeRevealRef, shapeRevealState] = useInView<HTMLElement>();
 
   const panelOpen = panel !== null;
   const bringFriends = appliedContexts.includes("Bring friends") || appliedSettings.with === "Friends";
@@ -406,8 +396,18 @@ export function AuroraExperience() {
   }, []);
 
   useEffect(() => {
+    // Client-only correction: SSR renders the neutral "Good evening" so hydration
+    // stays stable; after mount we reflect the visitor's real time of day.
+    const hour = new Date().getHours();
+    const next = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGreeting(next);
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (recomposeTimer.current) clearTimeout(recomposeTimer.current);
     };
   }, []);
 
@@ -494,6 +494,9 @@ export function AuroraExperience() {
     });
     setPanel(null);
     notify("Three recommendations were reshaped");
+    if (recomposeTimer.current) clearTimeout(recomposeTimer.current);
+    setIsRecomposing(true);
+    recomposeTimer.current = setTimeout(() => setIsRecomposing(false), 800);
     window.requestAnimationFrame(() => document.getElementById("top")?.scrollIntoView({ behavior: "smooth" }));
   }
 
@@ -549,7 +552,7 @@ export function AuroraExperience() {
   }
 
   return (
-    <div className="aurora-app">
+    <div className="aurora-app" data-surface={surface}>
       <a className="skip-link" href="#main-content">Skip to content</a>
 
       <header className="site-header">
@@ -572,14 +575,14 @@ export function AuroraExperience() {
         </div>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" data-recomposing={isRecomposing ? "true" : undefined}>
         {surface === "inspiration" && (
           <>
             <section className="intro" id="top">
               <div className="intro__context"><span>Friday</span><span className="intro__dot" /><span>London</span></div>
               <div className="intro__heading-row">
                 <div>
-                  <h1>Good evening, Aditya.</h1>
+                  <h1>{`${greeting}, Aditya.`}</h1>
                   <p>{editNotice ? "Your edit has been recomposed." : "A few ideas that fit the time you have."}</p>
                 </div>
                 <button className="edit-context" type="button" onClick={() => setPanel("context")}><SlidersHorizontal size={17} strokeWidth={1.6} />Shape the edit</button>
@@ -597,11 +600,11 @@ export function AuroraExperience() {
               )}
             </section>
 
-            <section ref={heroRevealRef} className="hero-section reveal-section" data-reveal={heroRevealState} id="inspiration" aria-labelledby="hero-title">
+            <section className="hero-section" id="inspiration" aria-labelledby="hero-title">
               <div className="hero-card">
                 <Image fill priority unoptimized src="/images/dinner-late-set.webp" alt="A couple dining at an intimate candlelit restaurant" sizes="(max-width: 700px) 100vw, 1380px" />
                 <span className="hero-card__light" /><span className="hero-card__veil" />
-                <div className="hero-card__status"><AuroraSignal active /><span>Available to request · checked 18:42 · not held</span></div>
+                <div className="hero-card__status"><AuroraSignal active /><span>Available to request · checked 6:42 PM · not held</span></div>
                 <div className="hero-card__copy">
                   <p className="eyebrow">{heroCopy.eyebrow}</p>
                   <h2 id="hero-title">{heroCopy.title}</h2>
@@ -624,17 +627,17 @@ export function AuroraExperience() {
               </div>
             </section>
 
-            <section ref={tomorrowRevealRef} className="content-section content-section--compact reveal-section" data-reveal={tomorrowRevealState} aria-labelledby="tomorrow-title">
+            <section className="content-section content-section--compact" aria-labelledby="tomorrow-title">
               <div className="section-heading">
                 <div><p className="eyebrow">Your next clear window</p><h2 id="tomorrow-title">For tomorrow morning</h2></div>
                 <p>{slowTomorrow ? "Recovery is being prioritised." : "Designed around a late night."}</p>
               </div>
               <div className="editorial-list">
-                {tomorrowItems.map((item, index) => <EditorialCard key={item.id} item={item} onOpen={openExperience} index={index} />)}
+                {tomorrowItems.map((item) => <EditorialCard key={item.id} item={item} onOpen={openExperience} />)}
               </div>
             </section>
 
-            <section ref={togetherRevealRef} className="content-section reveal-section" data-reveal={togetherRevealState} aria-labelledby="together-title">
+            <section className="content-section" aria-labelledby="together-title">
               <div className="section-heading">
                 <div><p className="eyebrow">Built from your shared saves</p><h2 id="together-title">Better together</h2></div>
                 <div className="shared-avatars" aria-label="Aditya and Maya, three shared saves"><span>A</span><span>M</span><small>3 shared saves</small></div>
@@ -642,13 +645,13 @@ export function AuroraExperience() {
               <div className="weekend-layout">
                 <div className="weekend-card-shell">
                   <button className="weekend-card" type="button" onClick={() => openExperience({
-                    id: "bruton", image: "/images/bruton-manor.jpg", imagePosition: "50% 54%", label: "A weekend to keep",
+                    id: "bruton", image: "/images/bruton-manor.webp", imagePosition: "50% 54%", label: "A weekend to keep",
                     title: "Forty-eight hours in Bruton.", body: "Art, long lunches and nowhere else to be.",
                     metadata: "17–19 October · 2 hr 5 min from London", badge: "3 shared saves",
                     detail: "A countryside weekend drawn from the places you and Maya have both kept returning to.",
                     provenance: "Created from three places saved by both you and Maya, with a shared free weekend.",
                   })}>
-                    <Image fill src="/images/bruton-manor.jpg" alt="An English manor set within a quiet country landscape" sizes="(max-width: 960px) 100vw, 70vw" />
+                    <Image fill unoptimized src="/images/bruton-manor.webp" alt="An English manor set within a quiet country landscape" sizes="(max-width: 960px) 100vw, 70vw" />
                     <span className="weekend-card__veil" />
                     <span className="weekend-card__copy"><span className="eyebrow">A weekend to keep</span><strong>Forty-eight hours in Bruton.</strong><span>Art, long lunches and nowhere else to be.</span><span className="weekend-card__meta">17–19 October · 2 hr 5 min from London</span></span>
                     <span className="weekend-card__action">Open the weekend <ArrowUpRight size={18} /></span>
@@ -667,17 +670,17 @@ export function AuroraExperience() {
               </div>
             </section>
 
-            <section ref={discoveryRevealRef} className="content-section reveal-section" data-reveal={discoveryRevealState} aria-labelledby="discovery-title">
+            <section className="content-section" aria-labelledby="discovery-title">
               <div className="section-heading">
                 <div><p className="eyebrow">A little further out</p><h2 id="discovery-title">Worth making room for</h2></div>
                 <button className="text-action" type="button" onClick={() => setPanel("search")}>Explore all <ArrowRight size={17} /></button>
               </div>
               <div className="discovery-grid discovery-grid--editorial">
-                {discoveryItems.map((item, index) => <ExperienceCard key={item.id} item={item} onOpen={openExperience} featured={index === 0} index={index} />)}
+                {discoveryItems.map((item, index) => <ExperienceCard key={item.id} item={item} onOpen={openExperience} featured={index === 0} />)}
               </div>
             </section>
 
-            <section ref={shapeRevealRef} className="shape-section reveal-section" data-reveal={shapeRevealState} aria-labelledby="shape-title">
+            <section className="shape-section" aria-labelledby="shape-title">
               <div className="shape-section__inner">
                 <div className="shape-section__copy"><p className="eyebrow">Refine the edit</p><h2 id="shape-title">Tell Aurora what matters now.</h2><p>Each choice immediately changes the recommendations above—and shows you why.</p></div>
                 <div className="refinement-list" aria-label="Ways to refine your edit">
@@ -796,7 +799,7 @@ export function AuroraExperience() {
                     <span className="detail-hero__veil" /><div><p className="eyebrow">Tonight · Soho</p><h2>{heroCopy.title}</h2><p>{heroCopy.description}</p></div>
                   </div>
                   <div className="detail-body">
-                    <div className="availability-callout"><AuroraSignal active /><span><strong>Available to request—not yet held.</strong>Mountain was checked at 18:42. Ronnie Scott’s requires a custom access request.</span></div>
+                    <div className="availability-callout"><AuroraSignal active /><span><strong>Available to request—not yet held.</strong>Mountain was checked at 6:42 PM. Ronnie Scott’s requires a custom access request.</span></div>
                     <section className="detail-section" aria-labelledby="timeline-title"><h3 id="timeline-title">The evening</h3><div className="timeline operational-timeline">
                       {eveningPlan.map((step) => <div className="timeline__item" key={step.title}><time>{step.time}</time><span><strong>{step.title}</strong><small>{step.detail}</small><StatusLabel state={step.state} /></span></div>)}
                     </div></section>
@@ -861,7 +864,7 @@ export function AuroraExperience() {
 
             {panel === "item" && selectedItem && (
               <div className="item-panel panel-stage" key={selectedItem.id}>
-                <div className="item-panel__image"><Image fill src={selectedItem.image} alt="" style={{ objectPosition: selectedItem.imagePosition }} sizes="(max-width: 700px) 100vw, 620px" /><span /></div>
+                <div className="item-panel__image"><Image fill unoptimized src={selectedItem.image} alt="" style={{ objectPosition: selectedItem.imagePosition }} sizes="(max-width: 700px) 100vw, 620px" /><span /></div>
                 <div className="item-panel__body"><p className="eyebrow">{selectedItem.label}</p><h2>{selectedItem.title}</h2><p className="item-panel__lead">{selectedItem.detail}</p><div className="item-panel__facts"><span><Clock3 size={17} />{selectedItem.metadata}</span><span><AuroraSignal />{selectedItem.badge}</span></div><div className="why-now"><h3>Why this surfaced</h3><p>{selectedItem.provenance}</p><small className="provenance-source">Calendar · Aurora memory · editorial judgement</small></div></div>
                 <div className="panel-actions"><button className="primary-action" type="button" onClick={() => { setPanel(null); setChatInput(`Can you arrange ${selectedItem.title.toLowerCase()}`); composerInputRef.current?.focus(); notify("Added to your Aurora prompt"); }}>Ask Aurora <MessageCircle size={18} /></button><button className={`secondary-action${savedItems.includes(selectedItem.id) ? " is-success" : ""}`} type="button" aria-pressed={savedItems.includes(selectedItem.id)} onClick={() => toggleSavedItem(selectedItem)}><span className="button-state" key={savedItems.includes(selectedItem.id) ? "saved" : "save"}>{savedItems.includes(selectedItem.id) ? <Check size={18} /> : <Bookmark size={18} />}{savedItems.includes(selectedItem.id) ? "Saved" : "Save"}</span></button></div>
               </div>

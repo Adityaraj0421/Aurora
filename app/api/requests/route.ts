@@ -14,6 +14,29 @@ type RequestPayload = {
   }>;
 };
 
+type StoredRequest = {
+  id: number;
+  reference: string;
+  title: string;
+  status: string;
+  owner: string;
+  guests: string;
+  planJson: string;
+  note: string;
+  submittedAt: string;
+};
+
+const vercelRuntime = process.env.VERCEL === "1";
+const globalRequestStore = globalThis as typeof globalThis & {
+  __auroraPreviewRequests?: StoredRequest[];
+  __auroraPreviewRequestId?: number;
+};
+
+function previewRequests() {
+  globalRequestStore.__auroraPreviewRequests ??= [];
+  return globalRequestStore.__auroraPreviewRequests;
+}
+
 function routeError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
   if (message.includes("no such table") || message.includes("requests")) {
@@ -24,6 +47,10 @@ function routeError(error: unknown) {
 
 export async function GET() {
   try {
+    if (vercelRuntime) {
+      return Response.json({ requests: [...previewRequests()].reverse().slice(0, 12) });
+    }
+
     const db = await getDb();
     const rows = await db.select().from(requests).orderBy(desc(requests.submittedAt), desc(requests.id)).limit(12);
     return Response.json({ requests: rows });
@@ -43,6 +70,26 @@ export async function POST(request: Request) {
     }
 
     const reference = `AUR-${Date.now().toString().slice(-6)}`;
+
+    if (vercelRuntime) {
+      const timestamp = new Date().toISOString();
+      const id = (globalRequestStore.__auroraPreviewRequestId ?? 0) + 1;
+      globalRequestStore.__auroraPreviewRequestId = id;
+      const created: StoredRequest = {
+        id,
+        reference,
+        title,
+        status: "requested",
+        owner: "Aurora London team",
+        guests: payload.guests?.trim() || "Aditya + Maya",
+        planJson: JSON.stringify(plan),
+        note: payload.note?.trim() || "",
+        submittedAt: timestamp,
+      };
+      previewRequests().push(created);
+      return Response.json({ request: created }, { status: 201 });
+    }
+
     const db = await getDb();
     const [created] = await db
       .insert(requests)

@@ -11,5 +11,4 @@ export const requests = sqliteTable("requests", {
   planJson: text("plan_json").notNull(),
   note: text("note").notNull().default(""),
   submittedAt: text("submitted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
